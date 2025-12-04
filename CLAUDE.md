@@ -2,14 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Version**: 2.2.0 | **Updated**: 2025-12-03 | **Context**: Windows 10/11, PowerShell, Root: `D:\AI\claude01`
+**Version**: 2.3.0 | **Updated**: 2025-12-04 | **Context**: Windows 10/11, PowerShell, Root: `D:\AI\claude01`
 
 ## 1. Critical Rules
 
 1. **Language**: 한글 출력. 기술 용어(code, GitHub)는 영어.
 2. **Path**: 절대 경로만 사용. `D:\AI\claude01\...`
 3. **Validation**: Phase 검증 필수. 실패 시 STOP.
-4. **Inbox 체크**: 세션 시작 시 `inbox/`에 `processed/`에 없는 파일 있으면 `inbox/IMPROVE_PROCESS.md` 실행.
 
 ---
 
@@ -113,7 +112,8 @@ PRE_WORK 승인 후:
 | 2.5 | 코드 리뷰 + Security | `/parallel-review` + Security Audit |
 | 3 | 버전 자동 결정 | Conventional Commits 분석 |
 | 4 | PR 생성 | `validate-phase-4.ps1` |
-| 5 | 배포 | `validate-phase-5.ps1` (사용자 확인 필수) |
+| 5 | E2E + Security | `validate-phase-5.ps1` |
+| 6 | 배포 | `validate-phase-6.ps1` (사용자 확인 필수) |
 
 ### 버전 자동 결정 (Phase 3)
 
@@ -188,7 +188,7 @@ PRE_WORK 승인 후:
 | Research | `/parallel-research`, `/issue-update` |
 | Analysis | `/optimize`, `/analyze-logs`, `/analyze-code` |
 
-> 전체 목록 (27개): `.claude/commands/`
+> 전체 목록 (28개): `.claude/commands/`
 
 ---
 
@@ -216,13 +216,13 @@ D:\AI\claude01\
 # 환경 설정
 $env:ANTHROPIC_API_KEY = "your-key"
 
-# 테스트 (전체)
-pytest tests/ -v -m unit
+# 테스트 (마커별)
+pytest tests/ -v -m unit           # 단위 테스트만
+pytest tests/ -v -m integration    # 통합 테스트만
+pytest tests/ -v -m "not slow"     # 느린 테스트 제외
 
-# 단일 테스트 파일
+# 단일 테스트
 pytest tests/test_parallel_workflow.py -v
-
-# 특정 테스트 함수
 pytest tests/test_parallel_workflow.py::test_function_name -v
 
 # 커버리지
@@ -243,22 +243,15 @@ black --check D:\AI\claude01\archive-analyzer\src
 mypy D:\AI\claude01\archive-analyzer\src\archive_analyzer
 ```
 
-### 서브프로젝트 실행
+### 서브프로젝트
+
+> **archive-analyzer**: 미디어 아카이브 분석 도구. 상세 내용은 `D:\AI\claude01\archive-analyzer\CLAUDE.md` 참조.
 
 ```powershell
-# archive-analyzer (API 서버)
+# 빠른 시작
 cd D:\AI\claude01\archive-analyzer
 pip install -e ".[dev,media,search]"
 uvicorn src.archive_analyzer.api:app --reload --port 8000
-
-# archive-analyzer (Docker 동기화)
-docker-compose -f D:\AI\claude01\archive-analyzer\docker-compose.sync.yml up -d
-
-# MeiliSearch 인덱싱
-python D:\AI\claude01\archive-analyzer\scripts\index_to_meilisearch.py
-
-# pokervod.db 동기화
-python D:\AI\claude01\archive-analyzer\scripts\sync_to_pokervod.py --dry-run
 ```
 
 ### 환경 변수 (필수)
