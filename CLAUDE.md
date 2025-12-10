@@ -2,7 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Version**: 6.0.0 | **Context**: Windows, PowerShell, Root: `D:\AI\archive-analyzer`
+**Version**: 7.3.0 | **Context**: Windows, PowerShell, Root: `D:\AI\claude01`
+
+**GitHub**: `garimto81/claude-code-config`
 
 ---
 
@@ -11,62 +13,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 규칙 | 내용 |
 |------|------|
 | **언어** | 한글 출력. 기술 용어(code, GitHub)는 영어 |
-| **경로** | 절대 경로만. `D:\AI\archive-analyzer\...` |
+| **경로** | 절대 경로만. `D:\AI\claude01\...` |
 | **충돌** | 지침 충돌 시 → **사용자에게 질문** (임의 판단 금지) |
 
 ---
 
 ## 프로젝트 구조
 
-4개의 독립적인 컴포넌트로 구성된 모노레포:
+Claude Code 전역 워크플로우 설정 저장소:
 
 ```
-D:\AI\archive-analyzer\
-├── src/agents/          # AI 워크플로우 에이전트 (Python)
-├── archive-analyzer/    # OTT 미디어 아카이브 분석 도구 (Python)
-├── backend/             # FastAPI 비디오 처리 서버 (Python)
-└── frontend/            # React 프론트엔드 (TypeScript)
-```
-
-**데이터 흐름**:
-```
-NAS(SMB) → archive-analyzer → pokervod.db ← backend → frontend
-                                   ↑
-                            MeiliSearch (검색)
-```
-
----
-
-## 빌드 & 테스트
-
-### Python (archive-analyzer)
-
-```powershell
-cd D:\AI\archive-analyzer\archive-analyzer
-pip install -e ".[dev,media]"                # 설치
-pytest tests/test_scanner.py -v              # 단일 테스트
-pytest tests/ -v -m unit                     # 마커별 테스트
-ruff check src/ && black --check src/        # 린트
-```
-
-### Backend (FastAPI)
-
-```powershell
-cd D:\AI\archive-analyzer\backend
-pip install -r requirements.txt
-uvicorn src.main:app --reload --port 8001    # 서버 실행
-pytest tests/ -v                             # 테스트
-```
-
-### Frontend (React/Vite)
-
-```powershell
-cd D:\AI\archive-analyzer\frontend
-npm install
-npm run dev                                  # 개발 서버 (port 8003)
-npm test                                     # Vitest 단위 테스트
-npm run test:e2e                             # Playwright E2E
-npm run lint                                 # ESLint
+D:\AI\claude01\
+├── .claude/commands/    # 커스텀 슬래시 커맨드
+├── .claude/skills/      # 커스텀 스킬
+├── docs/                # 워크플로우 문서
+└── src/agents/          # AI 워크플로우 에이전트 (Python)
 ```
 
 ---
@@ -96,16 +57,46 @@ npm run lint                                 # ESLint
 
 ---
 
-## 커맨드
+## 커맨드 (19개)
+
+### 핵심 (자주 사용)
 
 | 커맨드 | 용도 |
 |--------|------|
-| `/work "내용"` | 전체 워크플로우 |
-| `/issue fix #N` | 이슈 해결 |
-| `/commit` | 커밋 |
-| `/tdd` | TDD 워크플로우 |
+| `/work "내용"` | 전체 워크플로우 (`--auto` 완전 자동화) |
+| `/issue` | 이슈 관리 (`list`, `create`, `fix`, `failed`) |
+| `/commit` | 커밋 생성 |
 | `/check` | 린트 + 테스트 |
-| `/parallel dev` | 병렬 개발 |
+| `/tdd` | TDD 워크플로우 |
+
+### 병렬 실행
+
+| 커맨드 | 용도 |
+|--------|------|
+| `/parallel dev` | 병렬 개발 (`--branch` 브랜치 격리) |
+| `/parallel test` | 병렬 테스트 |
+| `/parallel review` | 병렬 코드 리뷰 |
+| `/parallel research` | 병렬 리서치 |
+| `/parallel check` | 충돌 검사 |
+
+### 생성/분석
+
+| 커맨드 | 용도 |
+|--------|------|
+| `/create` | PRD/PR/문서 생성 (`prd`, `pr`, `docs`) |
+| `/research` | 코드베이스 분석 (RPI Phase 1) |
+| `/plan` | 구현 계획 (RPI Phase 2) |
+| `/analyze` | 코드/로그 분석 |
+
+### 기타
+
+| 커맨드 | 용도 |
+|--------|------|
+| `/todo` | 작업 관리 |
+| `/pre-work` | 사전 조사 |
+| `/final-check` | 최종 E2E 검증 |
+| `/changelog` | 체인지로그 생성 |
+| `/optimize` | 성능 분석 |
 
 전체: `.claude/commands/`
 
@@ -125,11 +116,6 @@ pytest tests/test_a.py -v             # 개별 실행
 # 또는 run_in_background: true
 ```
 
-### 보호 대상
-
-- `pokervod.db` 스키마 변경 금지 (`qwen_hand_analysis` 소유)
-- 경로: `D:/AI/claude01/shared-data/pokervod.db`
-
 ---
 
 ## 문제 해결
@@ -142,11 +128,66 @@ pytest tests/test_a.py -v             # 개별 실행
 
 ---
 
+## 버전 관리 (필수)
+
+### PR/Issue 생성·업데이트 시 필수 항목
+
+| 항목 | 형식 | 예시 |
+|------|------|------|
+| **버전** | Semantic Versioning | `v1.2.3` |
+| **커밋 해시** | 7자리 short hash | `abc1234` |
+| **이슈/PR 태그** | `#번호` 또는 `Closes #번호` | `#181`, `Closes #179` |
+
+### 버전 업데이트 규칙
+
+```
+MAJOR.MINOR.PATCH (Semantic Versioning)
+├── MAJOR: 호환성 깨지는 변경
+├── MINOR: 새 기능 추가 (하위 호환)
+└── PATCH: 버그 수정
+```
+
+### 워크플로우
+
+```
+1. Issue 생성 → 이슈 번호 발급 (#N)
+2. 브랜치 생성 → feat/issue-N-desc
+3. 작업 완료 → 커밋 (해시 생성)
+4. PR 생성 → 이슈 태그 연결 (Closes #N)
+5. 머지 전 → /changelog 실행, 버전 범프
+6. 머지 후 → git tag vX.Y.Z
+```
+
+### 커밋 메시지 형식
+
+```
+<type>(<scope>): <subject> (#issue)
+
+- 변경 내용 설명
+
+Refs: #issue1, #issue2
+Closes #issue (PR에서 이슈 자동 종료 시)
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+```
+
+### 코멘트 태깅 규칙
+
+| 상황 | 태그 형식 |
+|------|-----------|
+| 이슈 참조 | `Refs: #123` |
+| 이슈 종료 | `Closes #123`, `Fixes #123` |
+| PR 참조 | `PR #456` |
+| 커밋 참조 | `abc1234` (7자리 해시) |
+
+---
+
 ## 참조
 
 | 문서 | 용도 |
 |------|------|
-| `archive-analyzer/CLAUDE.md` | 아카이브 분석기 상세 |
 | `docs/WORKFLOW_REFERENCE.md` | 상세 워크플로우 |
 | `docs/AGENTS_REFERENCE.md` | 에이전트 목록 |
+| `docs/SUBREPO_ANALYSIS_REPORT.md` | 서브레포 분석 보고서 |
+| `docs/templates/` | 에이전트 템플릿 |
 | `.claude/commands/` | 커맨드 상세 |
