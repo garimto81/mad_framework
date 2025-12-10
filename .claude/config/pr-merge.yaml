@@ -1,0 +1,86 @@
+# PR Merge Configuration
+# /pr 커맨드 및 pr-review-agent 스킬에서 사용
+
+# 머지 설정
+merge:
+  method: squash           # squash (기본), merge, rebase
+  delete_branch: true      # 머지 후 브랜치 삭제
+  commit_title: "pr"       # pr: PR 제목 사용, commit: 첫 커밋 메시지
+
+# 리뷰 설정
+review:
+  strict_mode: false       # true: Medium 이슈도 블로커로 처리
+  auto_fix:                # 자동 수정 대상
+    - lint
+    - format
+  skip_patterns:           # 리뷰 제외 파일 패턴
+    - "*.md"
+    - "*.txt"
+    - "package-lock.json"
+    - "poetry.lock"
+
+# 임계값
+thresholds:
+  complexity: 10           # 함수 복잡도 한계 (초과 시 경고)
+  coverage: 80             # 최소 테스트 커버리지 (%)
+  file_size: 500           # 파일당 최대 라인 수 (초과 시 경고)
+  pr_size: 1000            # PR 최대 변경 라인 수 (초과 시 경고)
+
+# 필수 조건 (하나라도 실패 시 머지 차단)
+required_checks:
+  ci_passed: true          # CI 통과 필수
+  no_conflicts: true       # 충돌 없음
+  no_critical_issues: true # Critical 이슈 없음
+  no_high_issues: true     # High 이슈 없음
+
+# 권장 조건 (경고만, 머지 가능)
+recommended_checks:
+  branch_updated: true     # 베이스 브랜치 최신
+  min_coverage: true       # 커버리지 기준 충족
+  no_medium_issues: false  # Medium 이슈 없음 (기본 비활성)
+
+# 라벨 기반 제어
+labels:
+  auto_merge:              # 자동 머지 허용 라벨
+    - "auto-merge"
+    - "trivial"
+    - "dependencies"
+  block_merge:             # 머지 차단 라벨
+    - "wip"
+    - "work-in-progress"
+    - "do-not-merge"
+    - "needs-review"
+  skip_review:             # 리뷰 생략 라벨
+    - "skip-review"
+    - "docs-only"
+
+# 보안 검사
+security:
+  enabled: true
+  check_secrets: true      # 하드코딩된 시크릿 검사
+  check_dependencies: true # 취약 의존성 검사
+  patterns:                # 시크릿 패턴 (정규식)
+    - "password\\s*=\\s*['\"][^'\"]+['\"]"
+    - "api[_-]?key\\s*=\\s*['\"][^'\"]+['\"]"
+    - "secret\\s*=\\s*['\"][^'\"]+['\"]"
+    - "token\\s*=\\s*['\"][^'\"]+['\"]"
+  ignore_files:            # 보안 검사 제외
+    - "*.test.*"
+    - "*.spec.*"
+    - "**/fixtures/**"
+
+# 알림 설정
+notifications:
+  on_review_complete: true
+  on_merge: true
+  on_block: true
+  mention_author: true     # PR 작성자 멘션
+
+# 프로젝트별 오버라이드 (선택)
+# project_overrides:
+#   backend:
+#     thresholds:
+#       coverage: 90       # 백엔드는 더 높은 커버리지 요구
+#   frontend:
+#     thresholds:
+#       coverage: 70       # 프론트엔드는 조금 낮게
