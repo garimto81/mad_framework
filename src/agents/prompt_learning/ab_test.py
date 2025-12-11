@@ -6,11 +6,9 @@ A/B 테스트 프레임워크
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Callable
+from typing import Optional
 from enum import Enum
 from datetime import datetime
-import random
-import json
 import hashlib
 
 

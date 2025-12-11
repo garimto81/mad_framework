@@ -8,7 +8,7 @@ Sequential vs Parallel 실행 시간 비교
 import asyncio
 import time
 from dataclasses import dataclass
-from typing import Callable, Any
+from typing import Callable
 import statistics
 
 

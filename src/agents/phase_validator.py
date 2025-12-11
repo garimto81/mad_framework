@@ -6,7 +6,6 @@ Phase 검증 병렬 실행기
 """
 
 import asyncio
-import subprocess
 import time
 from dataclasses import dataclass
 from typing import Optional
@@ -130,9 +129,6 @@ async def run_phase_2_parallel() -> list[ValidationResult]:
         ("unit", ["pytest", "tests/", "-v", "--tb=short", "-q"]),
         ("lint", ["ruff", "check", "src/"]),
     ]
-
-    results = []
-    start = time.time()
 
     tasks = []
     for name, cmd in validators:

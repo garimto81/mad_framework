@@ -5,9 +5,8 @@ LangGraph 기반 병렬 멀티에이전트 워크플로우
 Fan-Out / Fan-In 패턴으로 서브에이전트를 병렬 실행합니다.
 """
 
-from typing import TypedDict, Annotated, Optional, Any
+from typing import TypedDict, Annotated, Optional
 import operator
-import asyncio
 import json
 import re
 
@@ -15,7 +14,7 @@ from langgraph.graph import StateGraph, START, END
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from .config import AGENT_MODEL_TIERS, AgentConfig, DEFAULT_AGENTS
+from .config import AGENT_MODEL_TIERS
 
 
 # ============================================================================
@@ -100,7 +99,7 @@ def supervisor_node(state: WorkflowState) -> dict:
         subtasks = parsed.get("subtasks", [])
     except json.JSONDecodeError:
         # 폴백: 줄바꿈으로 분리
-        lines = [l.strip() for l in content.split('\n') if l.strip() and not l.startswith('#')]
+        lines = [line.strip() for line in content.split('\n') if line.strip() and not line.startswith('#')]
         subtasks = lines[:3] if len(lines) >= 3 else lines + ["추가 분석 필요"] * (3 - len(lines))
 
     return {"subtasks": subtasks}

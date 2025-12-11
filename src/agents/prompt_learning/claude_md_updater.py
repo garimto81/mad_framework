@@ -10,10 +10,9 @@ from typing import Optional
 from pathlib import Path
 from datetime import datetime
 import re
-import json
 import shutil
 
-from .failure_analyzer import FailureAnalysis, FailureCategory
+from .failure_analyzer import FailureCategory
 from .pattern_detector import Pattern, PatternReport
 
 

@@ -6,11 +6,10 @@
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from .failure_analyzer import FailureAnalysis, FailureCategory, FailureCause
+from .failure_analyzer import FailureAnalysis, FailureCategory
 
 
 @dataclass

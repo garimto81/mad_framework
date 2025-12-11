@@ -6,10 +6,7 @@ TextGrad 기반 프롬프트 최적화
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Callable
 from enum import Enum
-import json
-import os
 from pathlib import Path
 
 
