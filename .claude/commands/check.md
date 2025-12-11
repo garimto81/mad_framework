@@ -3,18 +3,26 @@ name: check
 description: Comprehensive code quality and security checks
 ---
 
-# /check - Code Quality & Security Scanner
+# /check - 통합 검증 커맨드
 
-Perform comprehensive quality and security checks with static analysis.
+정적 분석, E2E 테스트, 성능 분석, 보안 검사를 수행합니다.
 
 ## Usage
 
 ```
-/check [--fix]
-```
+/check [options]
 
 Options:
-- `--fix`: Automatically fix issues where possible
+  --fix           자동 수정 가능한 이슈 수정
+  --e2e           E2E 테스트 + 자동 수정 (final-check 흡수)
+  --perf          성능 분석 (optimize 흡수)
+  --security      보안 검사 심화
+  --all           모든 검사 수행
+
+조합 사용:
+  /check --e2e --fix    E2E + 자동 수정
+  /check --perf --fix   성능 분석 + 자동 수정
+```
 
 ## Check Categories
 
@@ -146,15 +154,89 @@ Action: Fix npm vulnerabilities before deploy
 - Complex refactoring
 ```
 
+## --e2e 모드 (E2E 테스트)
+
+`/check --e2e`는 기존 `/final-check` 기능을 통합:
+
+```bash
+/check --e2e
+
+# 수행 작업:
+# 1. Playwright E2E 테스트 실행
+# 2. 실패 시 자동 수정 시도 (최대 2회)
+# 3. Visual regression 검사
+# 4. 접근성 검사 (a11y)
+```
+
+### E2E 검증 기준
+
+| 항목 | 기준 | 실패 시 |
+|------|------|---------|
+| Functional | 100% 통과 | 자동 수정 |
+| Visual | Diff < 100px | 스냅샷 업데이트 |
+| Accessibility | Violations = 0 | ARIA 추가 |
+| Performance | LCP < 2.5s | 경고 |
+
+---
+
+## --perf 모드 (성능 분석)
+
+`/check --perf`는 기존 `/optimize` 기능을 통합:
+
+```bash
+/check --perf
+
+# 수행 작업:
+# 1. CPU/Memory 프로파일링
+# 2. 병목 지점 식별
+# 3. 최적화 제안 생성
+```
+
+### 성능 기준
+
+| 항목 | 목표 | 중요도 |
+|------|------|--------|
+| API 응답 | < 500ms (p95) | HIGH |
+| DB 쿼리 | < 100ms | HIGH |
+| 페이지 로드 | < 3s | MEDIUM |
+| 메모리 사용 | < 512MB | MEDIUM |
+
+### 최적화 제안 예시
+
+```
+⚡ Performance Analysis
+
+🔍 Identified Issues:
+   1. [CRITICAL] N+1 query in src/api/users.py:45
+      → Suggestion: Use joinedload()
+      → Impact: -80% query time
+
+   2. [HIGH] Blocking I/O in src/services/fetch.py:12
+      → Suggestion: Use async/await
+      → Impact: -60% response time
+```
+
+---
+
 ## Integration with Agents
 
-- **security-auditor**: Deep security analysis
-- **code-reviewer**: Code quality review
-- **performance-engineer**: Performance issues
+| 옵션 | 연동 에이전트 | 역할 |
+|------|--------------|------|
+| 기본 | `code-reviewer` | 코드 품질 리뷰 |
+| `--security` | `security-auditor` | 보안 취약점 심층 분석 |
+| `--e2e` | `test-engineer` | E2E 테스트 실행 |
+| `--perf` | `devops-engineer` | 성능 분석 |
 
 ## Related
 
-- `/optimize` - Performance optimization
 - `/tdd` - Test-driven development
-- `security-scanning` plugin
-- Phase 5 validation
+- `/work` - 전체 워크플로우
+
+---
+
+## 통합 이력
+
+| 기존 커맨드 | 통합 위치 | 날짜 |
+|------------|----------|------|
+| `/final-check` | `/check --e2e` | 2025-12-11 |
+| `/optimize` | `/check --perf` | 2025-12-11 |

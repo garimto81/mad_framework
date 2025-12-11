@@ -1,268 +1,180 @@
-# Agent 완전 참조 가이드
+# Agent 참조 가이드
 
 **목적**: 에이전트 분류 및 활용법
 
-**버전**: 4.0.0 | **업데이트**: 2025-12-11 | **동기화**: CLAUDE.md v8.0.0
+**버전**: 6.0.0 | **업데이트**: 2025-12-11 | **PRD**: PRD-0031
 
 ---
 
-## 에이전트 소스 3계층
+## 에이전트 구조
 
 | 계층 | 위치 | 개수 | 역할 |
 |------|------|------|------|
-| **내장** | Claude Code | 4개 | 기본 subagent (직접 호출) |
-| **루트 스킬** | `.claude/skills/` | 13개 | 자동/수동 트리거 스킬 |
-| **플러그인** | `.claude/plugins/` | 56개 | 전문 에이전트 (25개 카테고리) |
+| **내장** | Claude Code | 4개 | 기본 subagent |
+| **커스텀** | `.claude/agents/` | 18개 | 전문 에이전트 |
+| **스킬** | `.claude/skills/` | 13개 | 자동/수동 트리거 |
+| **MCP** | `.claude.json` | 4개 | 외부 도구 연동 |
 
 ---
 
 ## 1. 내장 Subagent (4개)
 
-Claude Code 공식 내장, 직접 호출 가능:
-
-| Agent | 용도 | 도구 | 호출 |
-|-------|------|------|------|
-| `general-purpose` | 복잡한 다단계 작업 | 모든 도구 | `Task(subagent_type="general-purpose")` |
-| `Explore` | 코드베이스 빠른 탐색 | Glob, Grep, Read | `Task(subagent_type="Explore")` |
-| `Plan` | 구현 계획 설계 | 읽기 도구만 | 자동 (Plan Mode) |
-| `debugger` | 버그 분석/수정 | Read, Edit, Bash, Grep | `Task(subagent_type="debugger")` |
+| Agent | 용도 | 호출 |
+|-------|------|------|
+| `general-purpose` | 복잡한 다단계 작업 | `Task(subagent_type="general-purpose")` |
+| `Explore` | 코드베이스 빠른 탐색 | `Task(subagent_type="Explore")` |
+| `Plan` | 구현 계획 설계 | 자동 (Plan Mode) |
+| `debugger` | 버그 분석/수정 | `Task(subagent_type="debugger")` |
 
 ---
 
-## 2. 플러그인 아키텍처 (56개 에이전트)
+## 2. 커스텀 에이전트 (18개)
 
-### 구조
+### Tier 1: CORE (6개) - 필수
 
-```
-.claude/plugins/
-├── {category}/              # 25개 카테고리
-│   ├── agents/              # 에이전트 정의 (.md)
-│   ├── commands/            # 커맨드 정의 (.md)
-│   └── skills/              # 스킬 정의 (SKILL.md)
-```
+| Agent | 용도 | 모델 |
+|-------|------|------|
+| `code-reviewer` | 코드 리뷰, 품질 검사 | sonnet |
+| `architect` | 설계, 아키텍처 결정 | opus |
+| `debugger` | 버그 분석, 트러블슈팅 | sonnet |
+| `test-engineer` | 테스트 (TDD, E2E, 단위) | sonnet |
+| `security-auditor` | 보안 취약점 분석 | sonnet |
+| `docs-writer` | API/시스템 문서화 | sonnet |
 
-### Phase별 에이전트 (19개)
+### Tier 2: DOMAIN (8개) - 도메인별 전문
 
-#### Phase 0: 계획 (5개)
+| Agent | 용도 | 모델 |
+|-------|------|------|
+| `frontend-dev` | 프론트엔드, UI/UX | sonnet |
+| `backend-dev` | 백엔드, API 개발 | sonnet |
+| `fullstack-dev` | 풀스택 개발 | opus |
+| `devops-engineer` | CI/CD, 인프라, K8s | sonnet |
+| `cloud-architect` | 클라우드, 네트워크 | sonnet |
+| `database-specialist` | DB 설계, 최적화 | sonnet |
+| `data-specialist` | 데이터, ML 파이프라인 | sonnet |
+| `ai-engineer` | LLM, RAG 시스템 | sonnet |
 
-| Agent | 용도 |
-|-------|------|
-| `context7-engineer` | Context7 MCP로 최신 기술 문서 검증 |
-| `exa-search-specialist` | Exasearch MCP로 고급 웹 검색 |
-| `seq-engineer` | Sequential thinking으로 단계별 추론 |
-| `task-decomposition-expert` | ChromaDB 기반 작업 분해 |
-| `taskmanager-planner` | 작업 계획 및 WBS 설계 |
+### Tier 3: LANGUAGE (2개) - 언어 전문
 
-#### Phase 1: 개발 (6개)
+| Agent | 용도 | 모델 |
+|-------|------|------|
+| `typescript-dev` | TypeScript 고급 패턴 | sonnet |
+| `python-dev` | Python 고급 패턴 | sonnet |
 
-| Agent | 용도 |
-|-------|------|
-| `backend-architect` | RESTful API, 마이크로서비스, DB 스키마 |
-| `debugger` | 오류 분석, 테스트 실패, 근본 원인 분석 |
-| `frontend-developer` | React, 반응형 디자인, 상태 관리 |
-| `fullstack-developer` | 프론트엔드 + 백엔드 + DB 통합 |
-| `mobile-developer` | React Native, Flutter |
-| `typescript-expert` | 고급 타입 시스템, 타입 안전 패턴 |
+### Tier 4: TOOLING (2개) - 도구 전문
 
-#### Phase 2: 테스팅 (4개)
-
-| Agent | 용도 |
-|-------|------|
-| `code-reviewer` | 코드 품질, 보안, 유지보수성 리뷰 |
-| `playwright-engineer` | E2E 테스트 자동화 |
-| `security-auditor` | OWASP 준수, 취약점 평가 |
-| `test-automator` | 단위/통합/E2E 테스트 스위트 |
-
-#### Phase 3: 아키텍처 (1개)
-
-| Agent | 용도 |
-|-------|------|
-| `architect-reviewer` | SOLID 원칙, 아키텍처 일관성 리뷰 |
-
-#### Phase 6: 배포 (3개)
-
-| Agent | 용도 |
-|-------|------|
-| `cloud-architect` | 클라우드 인프라, 비용 최적화 |
-| `deployment-engineer` | CI/CD 파이프라인, Docker |
-| `devops-troubleshooter` | 프로덕션 이슈, 로그 분석 |
+| Agent | 용도 | 모델 |
+|-------|------|------|
+| `github-engineer` | GitHub 워크플로우 | sonnet |
+| `claude-expert` | Claude Code, MCP, 에이전트 | opus |
 
 ---
 
-### 도메인별 에이전트 (37개)
+## 3. MCP 서버 (4개)
 
-#### AI/ML (5개)
-| Agent | 용도 |
-|-------|------|
-| `ai-engineer` | LLM 애플리케이션, RAG 시스템 |
-| `data-engineer` | ETL 파이프라인, 데이터 웨어하우스 |
-| `data-scientist` | SQL, BigQuery, 통계 분석 |
-| `ml-engineer` | ML 파이프라인, 모델 배포, MLOps |
-| `prompt-engineer` | LLM 프롬프트 최적화 |
+### 설치된 MCP
 
-#### 백엔드 (2개)
-| Agent | 용도 |
-|-------|------|
-| `graphql-architect` | GraphQL Federation, 성능 최적화 |
-| `tdd-orchestrator` | Red-Green-Refactor, 멀티 에이전트 TDD |
+| MCP | 패키지 | 용도 |
+|-----|--------|------|
+| `context7` | `@upstash/context7-mcp` | 기술 문서 조회 |
+| `sequential-thinking` | `@modelcontextprotocol/server-sequential-thinking` | 복잡한 추론 |
+| `taskmanager` | `@kazuph/mcp-taskmanager` | 작업 관리 |
 
-#### 인프라 (5개)
-| Agent | 용도 |
-|-------|------|
-| `kubernetes-architect` | 클라우드 네이티브, GitOps |
-| `terraform-specialist` | IaC 자동화, 상태 관리 |
-| `network-engineer` | 클라우드 네트워킹, 보안 아키텍처 |
-| `database-architect` | DB 설계, 데이터 모델링 |
-| `database-optimizer` | 쿼리 최적화, 마이그레이션 |
+### 추가 권장 (API 키 필요)
 
-#### 언어별 (4개)
-| Agent | 용도 |
-|-------|------|
-| `python-pro` | Python 3.12+, 비동기 프로그래밍 |
-| `fastapi-pro` | FastAPI, SQLAlchemy, Pydantic |
-| `javascript-pro` | ES6+, 비동기 패턴, Node.js |
-| `typescript-pro` | 고급 타입, 제네릭, 엔터프라이즈 패턴 |
+| MCP | 패키지 | 용도 |
+|-----|--------|------|
+| `exa` | `exa-mcp-server` | 고급 웹 검색 |
 
-#### 특화 도구 (6개)
-| Agent | 용도 |
-|-------|------|
-| `github-engineer` | 저장소 관리, Git 워크플로우, Actions |
-| `supabase-engineer` | Supabase DB, RLS 정책 |
-| `ui-ux-designer` | 사용자 중심 디자인, 인터페이스 시스템 |
-| `api-documenter` | OpenAPI 3.1, API 문서화 |
-| `docs-architect` | 기술 문서, 아키텍처 가이드 |
-| `legacy-modernizer` | 레거시 마이그레이션, 프레임워크 업그레이드 |
+### 설치 방법
 
-#### 성능/모니터링 (2개)
-| Agent | 용도 |
-|-------|------|
-| `observability-engineer` | 모니터링, 로깅, 트레이싱 |
-| `performance-engineer` | 애플리케이션 최적화, 확장성 |
+```bash
+# 설치
+claude mcp add <name> -- npx -y <package>
 
-#### 워크플로우 (4개)
-| Agent | 용도 |
-|-------|------|
-| `context-manager` | 동적 컨텍스트 관리, 메모리 시스템 |
-| `dx-optimizer` | 개발자 경험 최적화, 툴링 개선 |
-| `design-review` | UI/UX 리뷰, 접근성 테스트 |
-| `pragmatic-code-review` | 실용적 코드 리뷰, 품질 균형 |
+# 목록 확인
+claude mcp list
 
-#### 메타 개발 (3개)
-| Agent | 용도 |
-|-------|------|
-| `agent-expert` | Claude Code 에이전트 생성 |
-| `command-expert` | CLI 커맨드 설계 |
-| `mcp-expert` | MCP 서버 설정, 통합 |
-
----
-
-## 3. 루트 스킬 (13개)
-
-`.claude/skills/`의 자동/수동 트리거 스킬:
-
-### 자동 트리거 (9개)
-
-| 스킬 | Phase | 트리거 조건 | 연동 에이전트 |
-|------|-------|------------|--------------|
-| `tdd-workflow` | 1, 2 | "TDD", "테스트 먼저" | test-automator, debugger |
-| `debugging-workflow` | 1, 2, 5 | "debug", "3회 실패" | debugger |
-| `code-quality-checker` | 2, 2.5 | "린트", "품질 검사" | code-reviewer, security-auditor |
-| `final-check-automation` | 5 | "E2E", "최종 검증" | playwright-engineer, security-auditor |
-| `phase-validation` | 0-6 | "Phase 검증" | (내장 로직) |
-| `pre-work-research` | 0 | "신규 기능", "오픈소스" | context7-engineer |
-| `issue-resolution` | 1, 2 | "이슈 해결" | debugging-workflow, tdd-workflow |
-| `parallel-agent-orchestration` | 1, 2 | "병렬 개발" | debugger, code-reviewer |
-| `journey-sharing` | 4 | "여정 저장" | (내장 로직) |
-
-### 수동 호출 (4개)
-
-| 스킬 | 용도 |
-|------|------|
-| `webapp-testing` | 웹앱 테스트 가이드 |
-| `pr-review-agent` | PR 리뷰 자동화 |
-| `command-analytics` | 커맨드 사용 분석 |
-| `skill-creator` | 스킬 생성 가이드 |
-
----
-
-## 4. 활성 vs 비활성 에이전트
-
-### Commands/Skills에서 직접 참조 (활성)
-
-| Agent | 참조 위치 | Phase |
-|-------|----------|-------|
-| `context7-engineer` | pre-work, research | 0 |
-| `debugger` | analyze, fix-issue, tdd | 1, 2, 5 |
-| `backend-architect` | api-test | 1 |
-| `code-reviewer` | check, optimize, tdd | 2, 2.5 |
-| `test-automator` | fix-issue, tdd | 2 |
-| `security-auditor` | check, api-test, final-check | 5 |
-| `playwright-engineer` | final-check | 2, 5 |
-
-### 활성화 예정 (P1)
-
-상세: [PLANNED_AGENTS.md](./PLANNED_AGENTS.md)
-
----
-
-## 5. 병렬 실행 패턴
-
-### 패턴 1: Phase 0 병렬 분석
-```
-context7-engineer (기술 스택 검증)
-  ∥
-exa-search-specialist (웹 검색)
-  ∥
-Explore (코드베이스 탐색)
-```
-
-### 패턴 2: Phase 1 병렬 개발
-```
-backend-architect (API 설계)
-  ∥
-frontend-developer (UI 구현)
-  ∥
-debugger (버그 수정)
-```
-
-### 패턴 3: Phase 2 병렬 테스트
-```
-test-automator (단위 테스트)
-  ∥
-playwright-engineer (E2E 테스트)
-  ∥
-security-auditor (보안 스캔)
+# 제거
+claude mcp remove <name>
 ```
 
 ---
 
-## 6. Agent 선택 가이드
+## 4. 에이전트 사용 가이드
 
-| 작업 | 추천 Agent | Phase |
-|------|-----------|-------|
-| 기술 검증 | `context7-engineer` | 0 |
-| 작업 분해 | `task-decomposition-expert` | 0 |
-| 버그 분석 | `debugger` | 1 |
-| API 설계 | `backend-architect` | 1 |
-| 프론트엔드 | `frontend-developer` | 1 |
-| 테스트 작성 | `test-automator` | 2 |
-| 코드 리뷰 | `code-reviewer` | 2 |
-| 보안 검사 | `security-auditor` | 2, 5 |
-| E2E 테스트 | `playwright-engineer` | 2, 5 |
-| 아키텍처 리뷰 | `architect-reviewer` | 3 |
-| 배포 | `deployment-engineer` | 6 |
+### 호출 방법
+
+```
+"Use the [agent-name] agent to [task]"
+
+예:
+- "Use the code-reviewer agent to review this PR"
+- "Use the architect agent to design the API"
+- "Use the test-engineer agent to write E2E tests"
+```
+
+### 선택 기준
+
+| 상황 | 추천 에이전트 |
+|------|--------------|
+| 코드 작성 후 리뷰 | `code-reviewer` |
+| 설계 결정 필요 | `architect` |
+| 버그 분석 | `debugger` |
+| 테스트 작성 | `test-engineer` |
+| 보안 점검 | `security-auditor` |
+| 문서 작성 | `docs-writer` |
+| React/UI 개발 | `frontend-dev` |
+| API 개발 | `backend-dev` |
+| 전체 기능 개발 | `fullstack-dev` |
+| CI/CD, K8s | `devops-engineer` |
+| AWS/Azure/GCP | `cloud-architect` |
+| DB 설계/최적화 | `database-specialist` |
+| 데이터/ML | `data-specialist` |
+| LLM/RAG | `ai-engineer` |
+| TS 고급 타입 | `typescript-dev` |
+| Python 고급 | `python-dev` |
+| GitHub 워크플로우 | `github-engineer` |
+| Claude Code 설정 | `claude-expert` |
 
 ---
 
-## 참조
+## 5. 통합 이력 (PRD-0031)
 
-- [CLAUDE.md](../CLAUDE.md) - 핵심 워크플로우 (v8.0.0)
-- [PLANNED_AGENTS.md](./PLANNED_AGENTS.md) - 활성화 예정 에이전트
-- [COMMAND_SELECTOR.md](./COMMAND_SELECTOR.md) - 커맨드 선택 가이드
-- `.claude/plugins/` - 플러그인 상세
+### 삭제된 에이전트 (→ MCP 대체)
+
+| 에이전트 | 대체 MCP |
+|---------|---------|
+| `context7-engineer` | `context7` MCP |
+| `exa-search-specialist` | `exa` MCP |
+| `seq-engineer` | `sequential-thinking` MCP |
+| `taskmanager-planner` | `taskmanager` MCP |
+
+### 통합된 에이전트
+
+| 삭제 | 통합 대상 |
+|------|----------|
+| `typescript-pro`, `typescript-expert` | → `typescript-dev` |
+| `database-architect`, `database-optimizer`, `supabase-engineer` | → `database-specialist` |
+| `data-scientist`, `data-engineer`, `ml-engineer` | → `data-specialist` |
+| `deployment-engineer`, `devops-troubleshooter`, `kubernetes-architect`, `terraform-specialist` | → `devops-engineer` |
+| `frontend-developer`, `UI_UX-Designer`, `design-review` | → `frontend-dev` |
+| `backend-architect`, `architect-reviewer`, `graphql-architect` | → `architect` |
+| `test-automator`, `playwright-engineer`, `tdd-orchestrator` | → `test-engineer` |
+| `pragmatic-code-review` | → `code-reviewer` |
+| `api-documenter`, `docs-architect` | → `docs-writer` |
+| `cloud-architect`, `network-engineer` | → `cloud-architect` |
+| `agent-expert`, `command-expert`, `mcp-expert`, `prompt-engineer` | → `claude-expert` |
+
+### 백업 위치
+
+삭제된 에이전트: `.claude/agents.backup/`
 
 ---
 
-**관리**: Claude Code
-**업데이트**: 2025-12-11
-**버전**: 4.0.0
+## 버전 이력
+
+| 버전 | 날짜 | 변경 |
+|------|------|------|
+| 6.0.0 | 2025-12-11 | PRD-0031 적용: 50개 → 18개 통합, MCP 분리 |
+| 5.0.0 | 2025-12-11 | plugins/ → agents/ 이동, 구조 개편 |

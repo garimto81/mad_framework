@@ -3,14 +3,19 @@ name: research
 description: RPI Phase 1 - 코드베이스 분석 및 리서치
 ---
 
-# /research - Research Phase (RPI Step 1)
+# /research - 통합 리서치 커맨드
 
-코드베이스를 분석하고 구현에 필요한 정보를 수집합니다.
+코드베이스 분석, 웹 검색, 구현 계획을 수행합니다.
 
 ## Usage
 
 ```
-/research <target> [options]
+/research [subcommand] [target] [options]
+
+Subcommands:
+  code [path]     코드베이스 분석 (기본값)
+  web <keyword>   오픈소스/솔루션 웹 검색
+  plan [target]   구현 계획 수립 (RPI Phase 2)
 
 Targets:
   <issue-num>     특정 이슈 관련 리서치
@@ -22,6 +27,81 @@ Options:
   --save          결과를 .claude/research/에 저장
   --quick         빠른 탐색 (5분 이내)
   --thorough      철저한 분석 (15-30분)
+```
+
+---
+
+## 서브커맨드 상세
+
+### /research code - 코드베이스 분석 (기본값)
+
+```bash
+/research                      # = /research code . (현재 디렉토리)
+/research code                 # 전체 코드베이스 분석
+/research code src/api/        # 특정 경로 분석
+/research code 123             # 이슈 #123 관련 코드 분석
+/research code --codebase      # 전체 구조 분석
+/research code --deps          # 의존성 분석
+```
+
+### /research web - 오픈소스/솔루션 검색
+
+```bash
+/research web "React state management"
+/research web "Python async HTTP client"
+/research web "JWT authentication best practices"
+```
+
+**수행 작업:**
+1. 관련 오픈소스 라이브러리 검색
+2. Make vs Buy 분석
+3. 유사 구현 사례 조사
+4. 기술 문서 검색
+
+**출력 예시:**
+```markdown
+## 웹 리서치: React state management
+
+### 추천 라이브러리
+| 라이브러리 | 별점 | 장점 | 단점 |
+|-----------|------|------|------|
+| Zustand | ⭐⭐⭐⭐⭐ | 간단, 가벼움 | 대규모 앱 한계 |
+| Jotai | ⭐⭐⭐⭐ | 원자적 상태 | 러닝커브 |
+| Redux Toolkit | ⭐⭐⭐⭐ | 표준, 에코시스템 | 보일러플레이트 |
+
+### Make vs Buy 분석
+- **Buy 권장**: 인증된 라이브러리 사용
+- **Make 시**: 커스텀 요구사항 있을 때만
+```
+
+### /research plan - 구현 계획 수립
+
+```bash
+/research plan 123             # 이슈 #123 구현 계획
+/research plan "user auth"     # 기능 구현 계획
+/research plan --tdd           # TDD 기반 계획
+/research plan --detailed      # 상세 계획 (파일별)
+```
+
+**옵션:**
+- `--tdd`: Red-Green-Refactor 사이클 계획
+- `--detailed`: 파일별 변경 사항 포함
+- `--save`: `.claude/plans/`에 저장
+
+**출력 예시:**
+```markdown
+## 구현 계획: Issue #123
+
+### Step 1: 데이터 모델
+- [ ] src/models/user.py 생성
+- [ ] tests/test_user_model.py 생성
+
+### Step 2: 인증 로직
+- [ ] src/auth/service.py 수정
+- [ ] tests/test_auth_service.py 생성
+
+### 의존성
+- Step 2는 Step 1 완료 후
 ```
 
 ---
@@ -188,6 +268,15 @@ Options:
 
 ## Related
 
-- `/plan` - 구현 계획 수립 (RPI Step 2)
-- `/pre-work` - PRE_WORK 단계 (오픈소스 검색 포함)
 - `/parallel research` - 병렬 리서치 에이전트
+- `/work` - 전체 워크플로우 실행
+
+---
+
+## 통합 이력
+
+| 기존 커맨드 | 통합 위치 | 날짜 |
+|------------|----------|------|
+| `/plan` | `/research plan` | 2025-12-11 |
+| `/pre-work` | `/research web` | 2025-12-11 |
+| `/analyze code` | `/research code` | 2025-12-11 |

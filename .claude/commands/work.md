@@ -274,9 +274,19 @@ $ /work API 응답 캐싱 추가
 
 | 옵션 | 설명 | 예시 |
 |------|------|------|
+| `--auto` | 완전 자동화 (최종 보고서만 확인) | `/work --auto "대규모 리팩토링"` |
 | `--skip-analysis` | Phase 1 스킵 | `/work --skip-analysis "빠른 수정"` |
 | `--no-issue` | 이슈 생성 안함 | `/work --no-issue "내부 리팩토링"` |
 | `--strict` | 엄격 모드 (E2E 1회 실패 시 중단) | `/work --strict "프로덕션 배포"` |
+
+### --auto 모드 상세
+
+`/work --auto`는 `/work-auto`와 동일하게 동작합니다:
+
+- 모든 Phase 자동 실행 (중간 확인 없음)
+- 7단계 E2E Strict Validation
+- 실패 시 자동 수정 (최대 3회)
+- 최종 보고서만 사용자에게 제출
 
 ---
 

@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Version**: 8.1.0 | **Context**: Windows, PowerShell, Root: `D:\AI\claude01`
+**Version**: 10.0.0 | **Context**: Windows, PowerShell, Root: `D:\AI\claude01`
 
 **GitHub**: `garimto81/claude`
 
@@ -20,61 +20,63 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 구조
 
-Claude Code 전역 워크플로우 설정 저장소:
-
 ```
 D:\AI\claude01\
 ├── .claude/
-│   ├── commands/        # 커스텀 슬래시 커맨드 (20개)
-│   ├── skills/          # 루트 스킬 (13개) - 자동/수동 트리거
-│   └── plugins/         # 플러그인 에이전트 (56개, 25개 카테고리)
-├── docs/                # 워크플로우 문서
-├── src/agents/          # Python 워크플로우 모듈
-└── tasks/prds/          # PRD 문서
+│   ├── commands/     # 슬래시 커맨드 (12개)
+│   ├── skills/       # 스킬 (13개)
+│   └── agents/       # 에이전트 (18개)
+├── docs/             # 워크플로우 문서
+└── tasks/prds/       # PRD 문서
 ```
 
 ---
 
-## 플러그인 시스템 (56개 에이전트)
+## 에이전트 (18개)
 
-`.claude/plugins/`에 25개 카테고리의 전문 에이전트 정의:
+`.claude/agents/`에 정의된 전문 에이전트:
 
-```
-.claude/plugins/
-├── phase-0-planning/     # 계획 에이전트 (5개)
-├── phase-1-development/  # 개발 에이전트 (6개)
-├── phase-2-testing/      # 테스팅 에이전트 (4개)
-├── phase-3-architecture/ # 아키텍처 에이전트 (1개)
-├── phase-6-deployment/   # 배포 에이전트 (3개)
-├── python-development/   # Python 전문 (2개)
-├── javascript-typescript/# JS/TS 전문 (2개)
-├── database-tools/       # DB 전문 (2개)
-├── ai-ml-tools/          # AI/ML 전문 (5개)
-└── ... (25개 카테고리)
-```
-
-### 플러그인 구조
+### 호출 방법
 
 ```
-{category}/
-├── agents/     # 에이전트 정의 (.md)
-├── commands/   # 커맨드 정의 (.md)
-└── skills/     # 스킬 정의 (SKILL.md)
+"Use the [agent-name] agent to [task]"
+예: "Use the debugger agent to analyze this error"
 ```
 
-### 활성 에이전트 (7개)
+### Tier 1: CORE (6개) - 필수
 
-| Agent | Phase | 용도 |
-|-------|-------|------|
-| `context7-engineer` | 0 | 기술 스택 검증 |
-| `debugger` | 1, 2, 5 | 버그 분석/수정 |
-| `backend-architect` | 1 | API 설계 |
-| `code-reviewer` | 2 | 코드 리뷰 |
-| `test-automator` | 2 | 테스트 자동화 |
-| `security-auditor` | 5 | 보안 스캔 |
-| `playwright-engineer` | 2, 5 | E2E 테스트 |
+| Agent | 용도 |
+|-------|------|
+| `code-reviewer` | 코드 품질, 보안 리뷰 |
+| `architect` | 시스템 설계, 아키텍처 결정 |
+| `debugger` | 버그 분석, 근본 원인 분석 |
+| `test-engineer` | 단위/E2E/TDD 테스트 |
+| `security-auditor` | OWASP 보안 스캔 |
+| `docs-writer` | API/시스템 문서화 |
 
-상세: `docs/AGENTS_REFERENCE.md` (56개 전체 목록)
+### Tier 2: DOMAIN (8개)
+
+| Agent | 용도 |
+|-------|------|
+| `frontend-dev` | React/Next.js, UI/UX |
+| `backend-dev` | FastAPI, Django, Node.js |
+| `fullstack-dev` | 풀스택 개발 |
+| `devops-engineer` | CI/CD, K8s, Terraform |
+| `cloud-architect` | AWS/Azure/GCP |
+| `database-specialist` | DB 설계, 최적화, Supabase |
+| `data-specialist` | 데이터 분석, ML 파이프라인 |
+| `ai-engineer` | LLM, RAG 시스템 |
+
+### Tier 3-4: LANGUAGE & TOOLING (4개)
+
+| Agent | 용도 |
+|-------|------|
+| `typescript-dev` | TypeScript 고급 패턴 |
+| `python-dev` | Python 3.12+ 전문 |
+| `github-engineer` | GitHub 워크플로우 |
+| `claude-expert` | Claude Code, MCP, 에이전트 |
+
+전체: `docs/AGENTS_REFERENCE.md`
 
 ---
 
@@ -103,106 +105,80 @@ D:\AI\claude01\
 
 ---
 
-## 커맨드 (20개)
+## 커맨드 (12개)
 
-### 핵심 워크플로우 (4개)
-
-| 커맨드 | 용도 | 옵션 |
-|--------|------|------|
-| `/work "내용"` | 전체 워크플로우 | `--auto`, `--skip-analysis`, `--no-issue`, `--strict` |
-| `/work-auto "내용"` | 완전 자동화 | 최종 보고서만 확인 |
-| `/parallel <mode>` | 병렬 실행 | `dev`, `test`, `review`, `research`, `check` |
-| `/issue <action>` | 이슈 관리 | `list`, `create`, `edit`, `fix`, `failed` |
-
-### 사전 작업 (2개)
+### 핵심 (자주 사용)
 
 | 커맨드 | 용도 |
 |--------|------|
-| `/pre-work` | 솔루션 검색 + 중복 확인 + Make vs Buy |
-| `/research` | 코드베이스 분석 (RPI Phase 1) |
-
-### 개발 (3개)
-
-| 커맨드 | 용도 |
-|--------|------|
-| `/plan` | 구현 계획 수립 (RPI Phase 2) |
-| `/tdd` | Red-Green-Refactor 가이드 |
-| `/create <type>` | PRD/PR/문서 생성 (`prd`, `pr`, `docs`) |
-
-### 검증 (5개)
-
-| 커맨드 | 용도 |
-|--------|------|
-| `/check` | 린트 + 타입 + 보안 |
-| `/optimize` | 성능 분석 |
-| `/api-test` | API 엔드포인트 테스트 |
-| `/final-check` | E2E 엄격 검증 |
-| `/analyze <type>` | 코드/로그 분석 (`code`, `logs`) |
-
-### 문서 & 커밋 (3개)
-
-| 커맨드 | 용도 |
-|--------|------|
+| `/work "내용"` | 전체 워크플로우 (`--auto` 완전 자동화) |
+| `/issue [action]` | 이슈 관리 (`list`, `create`, `fix`, `failed`) |
 | `/commit` | Conventional Commits |
-| `/changelog` | CHANGELOG 자동 생성 |
-| `/pr <action>` | PR 리뷰/머지 (`review`, `improve`, `auto`) |
+| `/check [options]` | 린트/테스트 (`--e2e`, `--perf`, `--security`) |
+| `/tdd` | TDD 워크플로우 |
 
-### 세션 관리 (3개)
+### 병렬 실행
 
 | 커맨드 | 용도 |
 |--------|------|
-| `/todo <action>` | 작업 관리 (`list`, `add`, `done`, `clear`) |
-| `/journey <action>` | 세션 여정 (`save`, `load`, `link`) |
-| `/compact` | 컨텍스트 압축 |
+| `/parallel dev` | 병렬 개발 (`--branch` 브랜치 격리) |
+| `/parallel test` | 병렬 테스트 |
+| `/parallel review` | 병렬 코드 리뷰 |
+
+### 생성/분석
+
+| 커맨드 | 용도 |
+|--------|------|
+| `/research [sub]` | 리서치 (`code`, `web`, `plan`) |
+| `/create [type]` | PRD/PR/문서 생성 (`prd`, `pr`, `docs`) |
+| `/pr [action]` | PR 리뷰/머지 (`review`, `merge`, `create`) |
+
+### 관리
+
+| 커맨드 | 용도 |
+|--------|------|
+| `/todo` | 작업 관리 |
+| `/session [sub]` | 세션 관리 (`compact`, `journey`, `changelog`) |
+| `/api-test` | API 엔드포인트 테스트 |
 
 전체: `.claude/commands/`
 
 ---
 
-## 커맨드 선택 가이드
+## MCP 서버 (4개)
 
-| 작업 유형 | 추천 커맨드 | 순서 |
-|----------|------------|------|
-| 신규 기능 추가 | `/work` | pre-work → 구현 → E2E → PR |
-| 버그 수정 | `/issue fix #N` | 분석 → 수정 → 테스트 |
-| 성능 최적화 | `/optimize` → `/tdd` | 병목 분석 → TDD 구현 |
-| 코드 리팩토링 | `/parallel review` → `/check` | 리뷰 → 품질 검사 |
-| PR 리뷰 | `/pr review` → `/pr auto` | 리뷰 → 자동 머지 |
-| E2E 검증 | `/final-check` | 테스트 → 자동 수정 |
+| MCP | 용도 |
+|-----|------|
+| `context7` | 기술 문서 조회 |
+| `sequential-thinking` | 복잡한 추론 |
+| `taskmanager` | 작업 관리 |
+| `exa` | 고급 웹 검색 |
 
 ---
 
 ## 스킬 (13개)
 
-자동 트리거되는 스킬 목록:
+자동 트리거 스킬:
 
-| 스킬 | Phase | 트리거 조건 |
-|------|-------|-----------|
-| `tdd-workflow` | 1, 2 | "TDD", "테스트 먼저" |
-| `debugging-workflow` | 1, 2, 5 | "debug", "3회 실패" |
-| `code-quality-checker` | 2, 2.5 | "린트", "품질 검사" |
-| `final-check-automation` | 5 | "E2E", "최종 검증" |
-| `phase-validation` | 0-6 | "Phase 검증" |
-| `pre-work-research` | 0 | "신규 기능", "오픈소스" |
-| `issue-resolution` | 1, 2 | "이슈 해결" |
-| `parallel-agent-orchestration` | 1, 2 | "병렬 개발" |
-| `journey-sharing` | 4 | "여정 저장" |
+| 스킬 | 트리거 조건 |
+|------|-----------|
+| `tdd-workflow` | "TDD", "테스트 먼저" |
+| `debugging-workflow` | "debug", "3회 실패" |
+| `code-quality-checker` | "린트", "품질 검사" |
+| `final-check-automation` | "E2E", "최종 검증" |
 
-수동 호출 스킬: `webapp-testing`, `pr-review-agent`, `command-analytics`, `skill-creator`
+수동 호출: `webapp-testing`, `pr-review-agent`, `skill-creator`
 
 ---
 
 ## 안전 규칙
 
-### Crash Prevention (필수)
-
 ```powershell
 # 금지 (120초 초과 → 크래시)
-pytest tests/ -v --cov                # 대규모 테스트
-npm install && npm run build          # 체인 명령
+pytest tests/ -v --cov
 
 # 권장
-pytest tests/test_a.py -v             # 개별 실행
+pytest tests/test_a.py -v
 # 또는 run_in_background: true
 ```
 
@@ -218,68 +194,22 @@ pytest tests/test_a.py -v             # 개별 실행
 
 ---
 
-## 버전 관리 (필수)
-
-### PR/Issue 생성·업데이트 시 필수 항목
-
-| 항목 | 형식 | 예시 |
-|------|------|------|
-| **버전** | Semantic Versioning | `v1.2.3` |
-| **커밋 해시** | 7자리 short hash | `abc1234` |
-| **이슈/PR 태그** | `#번호` 또는 `Closes #번호` | `#181`, `Closes #179` |
-
-### 버전 업데이트 규칙
-
-```
-MAJOR.MINOR.PATCH (Semantic Versioning)
-├── MAJOR: 호환성 깨지는 변경
-├── MINOR: 새 기능 추가 (하위 호환)
-└── PATCH: 버그 수정
-```
-
-### 워크플로우
-
-```
-1. Issue 생성 → 이슈 번호 발급 (#N)
-2. 브랜치 생성 → feat/issue-N-desc
-3. 작업 완료 → 커밋 (해시 생성)
-4. PR 생성 → 이슈 태그 연결 (Closes #N)
-5. 머지 전 → /changelog 실행, 버전 범프
-6. 머지 후 → git tag vX.Y.Z
-```
-
-### 커밋 메시지 형식
-
-```
-<type>(<scope>): <subject> (#issue)
-
-- 변경 내용 설명
-
-Refs: #issue1, #issue2
-Closes #issue (PR에서 이슈 자동 종료 시)
-
-Generated with [Claude Code](https://claude.com/claude-code)
-```
-
-### 코멘트 태깅 규칙
-
-| 상황 | 태그 형식 |
-|------|-----------|
-| 이슈 참조 | `Refs: #123` |
-| 이슈 종료 | `Closes #123`, `Fixes #123` |
-| PR 참조 | `PR #456` |
-| 커밋 참조 | `abc1234` (7자리 해시) |
-
----
-
 ## 참조
 
 | 문서 | 용도 |
 |------|------|
-| `docs/AGENTS_REFERENCE.md` | 에이전트 전체 목록 (56개) |
-| `docs/COMMAND_SELECTOR.md` | 시나리오별 커맨드 추천 |
-| `docs/PLANNED_AGENTS.md` | 에이전트 활성화 로드맵 |
-| `docs/WORKFLOW_REFERENCE.md` | 상세 워크플로우 |
-| `.claude/commands/` | 커맨드 상세 (20개) |
-| `.claude/skills/` | 루트 스킬 상세 (13개) |
-| `.claude/plugins/` | 플러그인 에이전트 (56개) |
+| `docs/AGENTS_REFERENCE.md` | 에이전트 전체 목록 |
+| `docs/PRD-0031-AGENT-CONSOLIDATION.md` | 에이전트 통합 PRD |
+| `docs/PRD-0032-COMMAND-CONSOLIDATION.md` | 커맨드 통합 PRD |
+| `.claude/commands/` | 커맨드 상세 |
+| `.claude/skills/` | 스킬 상세 |
+| `.claude/agents/` | 에이전트 상세 |
+
+---
+
+## 변경 이력
+
+| 버전 | 날짜 | 변경 |
+|------|------|------|
+| 10.0.0 | 2025-12-11 | PRD-0032: 커맨드 통합 (20개 → 12개) |
+| 9.0.0 | 2025-12-11 | PRD-0031: 에이전트 통합 (50개 → 18개) |

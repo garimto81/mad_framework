@@ -17,7 +17,130 @@ Targets:
   test      병렬 테스트 (Unit + Integration + E2E + Security)
   review    병렬 코드 리뷰 (Security + Logic + Style + Performance)
   research  병렬 리서치 (4개 Research Agent)
+  check     충돌 검사 (병렬 실행 전 파일 범위 분석)
+
+Options:
+  --branch  브랜치 기반 병렬 개발 (git branch per agent)
 ```
+
+---
+
+## /parallel check - 충돌 검사
+
+**병렬 작업 전 파일 충돌 가능성을 사전 분석합니다.**
+
+```bash
+/parallel check "Task A, Task B, Task C"    # 3개 작업 충돌 검사
+/parallel check --tasks tasks.md            # 파일에서 작업 목록 로드
+```
+
+### 분석 프로세스
+
+1. **파일 범위 분석**: 각 작업이 수정할 파일 목록 예측
+2. **충돌 매트릭스 생성**: Write-Write 충돌 감지
+3. **실행 전략 제안**: 병렬 가능 vs 순차 필요
+
+### 충돌 매트릭스
+
+```
+┌──────────────┬────┬────┬────┬─────────┐
+│ 파일         │ A  │ B  │ C  │ 충돌    │
+├──────────────┼────┼────┼────┼─────────┤
+│ auth.ts      │ W  │ R  │ -  │ -       │
+│ user.ts      │ W  │ W  │ -  │ ⚠️ A-B  │
+│ api.ts       │ R  │ R  │ W  │ -       │
+│ config.ts    │ W  │ W  │ W  │ ⚠️ ALL  │
+└──────────────┴────┴────┴────┴─────────┘
+
+W = Write (수정), R = Read (읽기만)
+```
+
+### 출력 형식
+
+```markdown
+# 충돌 검사 보고서
+
+## 요약
+- **분석 작업**: 3개
+- **예상 수정 파일**: 12개
+- **충돌 감지**: 2건
+
+## 충돌 상세
+
+### ⚠️ Conflict #1: user.ts
+- **관련 작업**: Task A, Task B
+- **유형**: Write-Write
+- **권장**: 순차 실행 (A → B)
+
+## 실행 전략
+
+| 작업 | 실행 방식 | 이유 |
+|------|-----------|------|
+| A, C | ✅ 병렬 가능 | 파일 겹침 없음 |
+| B    | ⏳ A 완료 후 | user.ts 충돌 |
+```
+
+---
+
+## /parallel dev --branch - 브랜치 기반 병렬 개발
+
+**각 에이전트가 독립 브랜치에서 작업 후 머지합니다.**
+
+```bash
+/parallel dev --branch "인증 + API + UI 동시 개발"
+```
+
+### 브랜치 전략
+
+```
+main
+ │
+ ├──▶ feat/parallel-N-architect (Agent 1)
+ │         └─ 아키텍처 설계 + 인터페이스 정의
+ │
+ ├──▶ feat/parallel-N-coder (Agent 2)
+ │         └─ 핵심 구현 + 비즈니스 로직
+ │
+ ├──▶ feat/parallel-N-tester (Agent 3)
+ │         └─ 테스트 작성 + 픽스처
+ │
+ └──▶ feat/parallel-N-docs (Agent 4)
+           └─ 문서화 + API 스펙
+
+         ↓ 완료 후
+
+   PR → Review → Merge to main
+```
+
+### 실행 프로세스
+
+1. **Phase 1: 분석**
+   - 작업 범위 분석
+   - 충돌 검사 (`/parallel check` 자동 실행)
+   - 브랜치 생성 계획
+
+2. **Phase 2: 브랜치 생성**
+   ```bash
+   git checkout -b feat/parallel-{timestamp}-{role}
+   ```
+
+3. **Phase 3: 병렬 작업**
+   - 각 에이전트가 독립 브랜치에서 작업
+   - 충돌 없이 동시 진행
+
+4. **Phase 4: 통합**
+   - PR 생성 (각 브랜치 → main)
+   - 충돌 해결 (필요시)
+   - 머지 완료
+
+### 장점
+
+| 항목 | 설명 |
+|------|------|
+| **충돌 방지** | 브랜치 격리로 Write-Write 충돌 없음 |
+| **롤백 용이** | 문제 발생 시 특정 브랜치만 되돌리기 |
+| **리뷰 분리** | 역할별 독립 PR 리뷰 가능 |
+| **히스토리** | 작업별 명확한 커밋 이력 |
 
 ---
 
