@@ -29,6 +29,63 @@ describe('BaseLLMAdapter', () => {
     vi.clearAllMocks();
   });
 
+  describe('selector fallback system (Issue #18)', () => {
+    it('should have selectorSets with primary and fallbacks', () => {
+      const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
+
+      expect(adapter.selectorSets).toBeDefined();
+      expect(adapter.selectorSets.inputTextarea.primary).toBe('#prompt-textarea');
+      expect(adapter.selectorSets.inputTextarea.fallbacks).toContain('[contenteditable="true"]');
+    });
+
+    it('should find element with primary selector first', async () => {
+      mockWebContents.executeJavaScript.mockResolvedValueOnce(true);
+
+      const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
+      const isLoggedIn = await adapter.isLoggedIn();
+
+      expect(isLoggedIn).toBe(true);
+      // Should only check primary selector when it exists
+      expect(mockWebContents.executeJavaScript).toHaveBeenCalledTimes(1);
+    });
+
+    it('should try fallback selectors when primary fails', async () => {
+      // Primary fails, first fallback fails, second fallback succeeds
+      mockWebContents.executeJavaScript
+        .mockResolvedValueOnce(false)  // primary fails
+        .mockResolvedValueOnce(false)  // fallback 1 fails
+        .mockResolvedValueOnce(true);  // fallback 2 succeeds
+
+      const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
+      const isLoggedIn = await adapter.isLoggedIn();
+
+      expect(isLoggedIn).toBe(true);
+      // Should have tried primary + 2 fallbacks
+      expect(mockWebContents.executeJavaScript).toHaveBeenCalledTimes(3);
+    });
+
+    it('should return false when all selectors fail', async () => {
+      // All selectors fail
+      mockWebContents.executeJavaScript.mockResolvedValue(false);
+
+      const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
+      const isLoggedIn = await adapter.isLoggedIn();
+
+      expect(isLoggedIn).toBe(false);
+    });
+
+    it('should have different fallbacks for each provider', () => {
+      const chatgpt = new BaseLLMAdapter('chatgpt', mockWebContents as any);
+      const claude = new BaseLLMAdapter('claude', mockWebContents as any);
+      const gemini = new BaseLLMAdapter('gemini', mockWebContents as any);
+
+      // Each provider has different primary selectors
+      expect(chatgpt.selectorSets.inputTextarea.primary).toBe('#prompt-textarea');
+      expect(claude.selectorSets.inputTextarea.primary).toBe('[contenteditable="true"]');
+      expect(gemini.selectorSets.inputTextarea.primary).toBe('.ql-editor');
+    });
+  });
+
   describe('isLoggedIn', () => {
     it('should return true when login selector exists', async () => {
       mockWebContents.executeJavaScript.mockResolvedValue(true);
@@ -79,8 +136,10 @@ describe('BaseLLMAdapter', () => {
 
   describe('inputPrompt', () => {
     it('should input prompt text into textarea', async () => {
-      // enterPrompt script returns {success: true} object
-      mockWebContents.executeJavaScript.mockResolvedValue({ success: true });
+      // findElement returns true (selector found), enterPrompt script returns {success: true}
+      mockWebContents.executeJavaScript
+        .mockResolvedValueOnce(true)  // findElement: selector exists
+        .mockResolvedValueOnce({ success: true }); // enterPrompt: input success
 
       const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
       const prompt = 'Test prompt for debate';
@@ -88,12 +147,15 @@ describe('BaseLLMAdapter', () => {
       await adapter.inputPrompt(prompt);
 
       expect(mockWebContents.executeJavaScript).toHaveBeenCalled();
-      const call = mockWebContents.executeJavaScript.mock.calls[0][0];
+      // Second call contains the actual prompt
+      const call = mockWebContents.executeJavaScript.mock.calls[1][0];
       expect(call).toContain('Test prompt for debate');
     });
 
     it('should escape special characters in prompt', async () => {
-      mockWebContents.executeJavaScript.mockResolvedValue({ success: true });
+      mockWebContents.executeJavaScript
+        .mockResolvedValueOnce(true)  // findElement
+        .mockResolvedValueOnce({ success: true }); // input script
 
       const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
       const prompt = 'Test with "quotes" and \'apostrophes\'';
@@ -104,18 +166,21 @@ describe('BaseLLMAdapter', () => {
     });
 
     it('should throw error when input fails', async () => {
-      mockWebContents.executeJavaScript.mockResolvedValue({ success: false, error: 'selector not found' });
+      // findElement returns false (no selector found)
+      mockWebContents.executeJavaScript.mockResolvedValue(false);
 
       const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
 
-      await expect(adapter.inputPrompt('test')).rejects.toThrow('Failed to input prompt');
+      await expect(adapter.inputPrompt('test')).rejects.toThrow('no input found');
     });
   });
 
   describe('sendMessage', () => {
     it('should click send button', async () => {
-      // submitMessage script returns {success: true} object
-      mockWebContents.executeJavaScript.mockResolvedValue({ success: true });
+      // findElement returns true, submitMessage script returns {success: true}
+      mockWebContents.executeJavaScript
+        .mockResolvedValueOnce(true)  // findElement: button found
+        .mockResolvedValueOnce({ success: true }); // click success
 
       const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
       await adapter.sendMessage();
@@ -124,10 +189,11 @@ describe('BaseLLMAdapter', () => {
     });
 
     it('should throw error when send button not found', async () => {
-      mockWebContents.executeJavaScript.mockResolvedValue({ success: false, error: 'send button not found' });
+      // All selectors fail, then Enter key fallback also fails
+      mockWebContents.executeJavaScript.mockResolvedValue(false);
 
       const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
-      await expect(adapter.sendMessage()).rejects.toThrow('Failed to send message');
+      await expect(adapter.sendMessage()).rejects.toThrow('Send button not found');
     });
   });
 
@@ -157,7 +223,10 @@ describe('BaseLLMAdapter', () => {
   describe('extractResponse', () => {
     it('should extract last response content', async () => {
       const expectedResponse = 'This is the LLM response';
-      mockWebContents.executeJavaScript.mockResolvedValue(expectedResponse);
+      // findElement returns true, then extract script returns the response
+      mockWebContents.executeJavaScript
+        .mockResolvedValueOnce(true)  // findElement
+        .mockResolvedValueOnce(expectedResponse); // extract script
 
       const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
       const response = await adapter.extractResponse();
@@ -166,7 +235,9 @@ describe('BaseLLMAdapter', () => {
     });
 
     it('should return empty string when no response exists', async () => {
-      mockWebContents.executeJavaScript.mockResolvedValue('');
+      mockWebContents.executeJavaScript
+        .mockResolvedValueOnce(true)  // findElement
+        .mockResolvedValueOnce(''); // empty response
 
       const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
       const response = await adapter.extractResponse();
@@ -197,7 +268,9 @@ describe('BaseLLMAdapter', () => {
 
   describe('getTokenCount', () => {
     it('should return approximate token count from response length', async () => {
-      mockWebContents.executeJavaScript.mockResolvedValue(1234);
+      mockWebContents.executeJavaScript
+        .mockResolvedValueOnce(true)  // findElement
+        .mockResolvedValueOnce(1234); // count
 
       const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
       const tokenCount = await adapter.getTokenCount();
@@ -206,7 +279,7 @@ describe('BaseLLMAdapter', () => {
     });
 
     it('should return 0 when no response exists', async () => {
-      mockWebContents.executeJavaScript.mockResolvedValue(0);
+      mockWebContents.executeJavaScript.mockResolvedValue(false); // findElement fails
 
       const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
       const tokenCount = await adapter.getTokenCount();
