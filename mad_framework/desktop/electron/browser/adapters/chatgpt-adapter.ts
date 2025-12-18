@@ -2,9 +2,11 @@
  * ChatGPT Adapter
  *
  * chat.openai.com 사이트 자동화
+ * Issue #17: AdapterResult 타입으로 표준화
  */
 
 import { BaseLLMAdapter } from './base-adapter';
+import type { AdapterResult } from '../../../shared/types';
 
 interface WebContents {
   executeJavaScript: (script: string) => Promise<any>;
@@ -29,22 +31,28 @@ export class ChatGPTAdapter extends BaseLLMAdapter {
     super('chatgpt', webContents);
   }
 
-  async isLoggedIn(): Promise<boolean> {
-    const script = `
-      !!(
-        document.querySelector('[data-testid="profile-button"]') ||
-        document.querySelector('button[aria-label*="Account"]') ||
-        document.querySelector('img[alt*="User"]') ||
-        document.querySelector('#prompt-textarea')
-      )
-    `;
-    return this.executeScript<boolean>(script, false);
+  // --- AdapterResult-based methods (Issue #17) ---
+
+  async checkLogin(): Promise<AdapterResult<boolean>> {
+    try {
+      const script = `
+        !!(
+          document.querySelector('[data-testid="profile-button"]') ||
+          document.querySelector('button[aria-label*="Account"]') ||
+          document.querySelector('img[alt*="User"]') ||
+          document.querySelector('#prompt-textarea')
+        )
+      `;
+      const isLoggedIn = await this.executeScript<boolean>(script, false);
+      return this.success(isLoggedIn);
+    } catch (error) {
+      return this.error('NOT_LOGGED_IN', `ChatGPT login check failed: ${error}`);
+    }
   }
 
-  // ChatGPT uses ProseMirror editor - needs special input handling
-  async inputPrompt(prompt: string): Promise<void> {
+  async enterPrompt(prompt: string): Promise<AdapterResult> {
     const escapedPrompt = JSON.stringify(prompt);
-    console.log(`[chatgpt] inputPrompt called, length: ${prompt.length}`);
+    console.log(`[chatgpt] enterPrompt called, length: ${prompt.length}`);
 
     const script = `
       (() => {
@@ -54,7 +62,7 @@ export class ChatGPTAdapter extends BaseLLMAdapter {
             return { success: false, error: 'textarea not found' };
           }
 
-          // Focus and clear
+          // Focus first
           textarea.focus();
 
           // Method 1: For contenteditable (ProseMirror)
@@ -67,7 +75,12 @@ export class ChatGPTAdapter extends BaseLLMAdapter {
             p.textContent = ${escapedPrompt};
             textarea.appendChild(p);
 
-            // Trigger input event
+            // Trigger multiple events for React detection (Issue #16)
+            ['input', 'change', 'keyup', 'keydown'].forEach(eventType => {
+              textarea.dispatchEvent(new Event(eventType, { bubbles: true }));
+            });
+
+            // Also dispatch InputEvent for better compatibility
             textarea.dispatchEvent(new InputEvent('input', {
               bubbles: true,
               cancelable: true,
@@ -78,11 +91,20 @@ export class ChatGPTAdapter extends BaseLLMAdapter {
             return { success: true, method: 'contenteditable' };
           }
 
-          // Method 2: For regular textarea
+          // Method 2: For regular textarea - use native setter to bypass React
           if (textarea.tagName === 'TEXTAREA') {
-            textarea.value = ${escapedPrompt};
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+              window.HTMLTextAreaElement.prototype, 'value'
+            )?.set;
+
+            if (nativeInputValueSetter) {
+              nativeInputValueSetter.call(textarea, ${escapedPrompt});
+            } else {
+              textarea.value = ${escapedPrompt};
+            }
+
             textarea.dispatchEvent(new Event('input', { bubbles: true }));
-            return { success: true, method: 'textarea' };
+            return { success: true, method: 'native-setter' };
           }
 
           return { success: false, error: 'unknown input type' };
@@ -92,15 +114,39 @@ export class ChatGPTAdapter extends BaseLLMAdapter {
       })()
     `;
 
-    const result = await this.executeScript<{success: boolean; error?: string; method?: string}>(script, { success: false, error: 'script failed' });
-    console.log(`[chatgpt] inputPrompt result:`, result);
+    try {
+      const result = await this.executeScript<{success: boolean; error?: string; method?: string}>(
+        script,
+        { success: false, error: 'script failed' }
+      );
+      console.log(`[chatgpt] enterPrompt result:`, result);
 
-    // Wait a bit for React to process
-    await this.sleep(500);
+      if (!result.success) {
+        return this.error('INPUT_FAILED', `ChatGPT enterPrompt failed: ${result.error}`, {
+          promptLength: prompt.length,
+        });
+      }
+
+      // Wait longer for React to process (500ms → 1000ms as per Issue #16)
+      await this.sleep(1000);
+
+      // Verify input was successful
+      const verified = await this.verifyInput();
+      if (!verified) {
+        return this.error('VERIFICATION_FAILED', 'ChatGPT enterPrompt verification failed: input is empty', {
+          promptLength: prompt.length,
+          method: result.method,
+        });
+      }
+
+      return this.success();
+    } catch (error) {
+      return this.error('INPUT_FAILED', `ChatGPT enterPrompt exception: ${error}`);
+    }
   }
 
-  async sendMessage(): Promise<void> {
-    console.log(`[chatgpt] sendMessage called`);
+  async submitMessage(): Promise<AdapterResult> {
+    console.log(`[chatgpt] submitMessage called`);
 
     const script = `
       (() => {
@@ -148,26 +194,30 @@ export class ChatGPTAdapter extends BaseLLMAdapter {
       })()
     `;
 
-    const result = await this.executeScript<{success: boolean; error?: string; selector?: string}>(script, { success: false });
-    console.log(`[chatgpt] sendMessage result:`, result);
+    try {
+      const result = await this.executeScript<{success: boolean; error?: string; selector?: string}>(
+        script,
+        { success: false }
+      );
+      console.log(`[chatgpt] submitMessage result:`, result);
 
-    // Wait for message to be sent
-    await this.sleep(1000);
+      // Wait for message to be sent
+      await this.sleep(1000);
+
+      if (!result.success) {
+        return this.error('SEND_FAILED', `ChatGPT submitMessage failed: ${result.error}`, {
+          selector: this.selectors.sendButton,
+        });
+      }
+
+      return this.success();
+    } catch (error) {
+      return this.error('SEND_FAILED', `ChatGPT submitMessage exception: ${error}`);
+    }
   }
 
-  async isWriting(): Promise<boolean> {
-    const script = `
-      !!(
-        document.querySelector('.result-streaming') ||
-        document.querySelector('[data-message-author-role="assistant"] .markdown.prose.dark:empty') ||
-        document.querySelector('.agent-turn')
-      )
-    `;
-    return this.executeScript<boolean>(script, false);
-  }
-
-  async extractResponse(): Promise<string> {
-    console.log(`[chatgpt] extractResponse called`);
+  async getResponse(): Promise<AdapterResult<string>> {
+    console.log(`[chatgpt] getResponse called`);
 
     // Wait for DOM to be fully rendered after response
     await this.sleep(1000);
@@ -207,12 +257,72 @@ export class ChatGPTAdapter extends BaseLLMAdapter {
       })()
     `;
 
-    const result = await this.executeScript<{success: boolean; content: string; error?: string; selector?: string}>(
-      script,
-      { success: false, content: '', error: 'script failed' }
-    );
+    try {
+      const result = await this.executeScript<{success: boolean; content: string; error?: string; selector?: string}>(
+        script,
+        { success: false, content: '', error: 'script failed' }
+      );
 
-    console.log(`[chatgpt] extractResponse result:`, JSON.stringify(result).substring(0, 300));
-    return result.content;
+      console.log(`[chatgpt] getResponse result:`, JSON.stringify(result).substring(0, 300));
+
+      if (!result.success || !result.content) {
+        return this.error('EXTRACT_FAILED', `ChatGPT getResponse failed: ${result.error}`, {
+          selector: this.selectors.responseContainer,
+        });
+      }
+
+      return this.success(result.content);
+    } catch (error) {
+      return this.error('EXTRACT_FAILED', `ChatGPT getResponse exception: ${error}`);
+    }
+  }
+
+  // --- Legacy methods (backward compatibility) ---
+
+  async isLoggedIn(): Promise<boolean> {
+    const result = await this.checkLogin();
+    return result.success && result.data === true;
+  }
+
+  async inputPrompt(prompt: string): Promise<void> {
+    const result = await this.enterPrompt(prompt);
+    if (!result.success) {
+      throw new Error(result.error?.message || `ChatGPT inputPrompt failed`);
+    }
+  }
+
+  async sendMessage(): Promise<void> {
+    const result = await this.submitMessage();
+    if (!result.success) {
+      throw new Error(result.error?.message || `ChatGPT sendMessage failed`);
+    }
+  }
+
+  async extractResponse(): Promise<string> {
+    const result = await this.getResponse();
+    return result.data || '';
+  }
+
+  async isWriting(): Promise<boolean> {
+    const script = `
+      !!(
+        document.querySelector('.result-streaming') ||
+        document.querySelector('[data-message-author-role="assistant"] .markdown.prose.dark:empty') ||
+        document.querySelector('.agent-turn')
+      )
+    `;
+    return this.executeScript<boolean>(script, false);
+  }
+
+  // Verify that input was successfully entered
+  private async verifyInput(): Promise<boolean> {
+    const script = `
+      (() => {
+        const textarea = document.querySelector('#prompt-textarea');
+        const content = textarea?.innerText || textarea?.value || '';
+        return content.trim().length > 0;
+      })()
+    `;
+    return this.executeScript<boolean>(script, false);
   }
 }

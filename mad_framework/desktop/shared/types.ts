@@ -5,6 +5,29 @@
 // LLM Provider Types
 export type LLMProvider = 'chatgpt' | 'claude' | 'gemini';
 
+// Adapter Result Types (Issue #17)
+export interface AdapterResult<T = void> {
+  success: boolean;
+  data?: T;
+  error?: AdapterError;
+}
+
+export interface AdapterError {
+  code: AdapterErrorCode;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
+export type AdapterErrorCode =
+  | 'SELECTOR_NOT_FOUND'
+  | 'INPUT_FAILED'
+  | 'SEND_FAILED'
+  | 'RESPONSE_TIMEOUT'
+  | 'EXTRACT_FAILED'
+  | 'NOT_LOGGED_IN'
+  | 'VERIFICATION_FAILED'
+  | 'UNKNOWN';
+
 // Login Status
 export interface LLMLoginStatus {
   provider: LLMProvider;

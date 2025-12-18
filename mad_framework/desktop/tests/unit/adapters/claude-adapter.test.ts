@@ -44,7 +44,8 @@ describe('ClaudeAdapter', () => {
 
   describe('inputPrompt', () => {
     it('should input to contenteditable div using innerText', async () => {
-      mockWebContents.executeJavaScript.mockResolvedValue(undefined);
+      // enterPrompt returns {success: true} object from script execution
+      mockWebContents.executeJavaScript.mockResolvedValue({ success: true });
 
       await adapter.inputPrompt('Test prompt');
 
@@ -54,12 +55,18 @@ describe('ClaudeAdapter', () => {
     });
 
     it('should dispatch InputEvent for contenteditable', async () => {
-      mockWebContents.executeJavaScript.mockResolvedValue(undefined);
+      mockWebContents.executeJavaScript.mockResolvedValue({ success: true });
 
       await adapter.inputPrompt('Test');
 
       const script = mockWebContents.executeJavaScript.mock.calls[0][0];
       expect(script).toContain('InputEvent');
+    });
+
+    it('should throw error when input fails', async () => {
+      mockWebContents.executeJavaScript.mockResolvedValue({ success: false, error: 'editor not found' });
+
+      await expect(adapter.inputPrompt('Test')).rejects.toThrow('Claude enterPrompt failed');
     });
   });
 

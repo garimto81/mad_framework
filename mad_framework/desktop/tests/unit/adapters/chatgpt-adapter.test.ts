@@ -58,13 +58,30 @@ describe('ChatGPTAdapter', () => {
 
   describe('inputPrompt', () => {
     it('should input to #prompt-textarea', async () => {
-      mockWebContents.executeJavaScript.mockResolvedValue(undefined);
+      // Mock successful input and verification
+      mockWebContents.executeJavaScript
+        .mockResolvedValueOnce({ success: true, method: 'contenteditable' }) // inputPrompt script
+        .mockResolvedValueOnce(true); // verifyInput script
 
       await adapter.inputPrompt('Test prompt');
 
       const script = mockWebContents.executeJavaScript.mock.calls[0][0];
       expect(script).toContain('#prompt-textarea');
       expect(script).toContain('Test prompt');
+    });
+
+    it('should throw error when input fails', async () => {
+      mockWebContents.executeJavaScript.mockResolvedValue({ success: false, error: 'textarea not found' });
+
+      await expect(adapter.inputPrompt('Test')).rejects.toThrow('ChatGPT enterPrompt failed');
+    });
+
+    it('should throw error when verification fails', async () => {
+      mockWebContents.executeJavaScript
+        .mockResolvedValueOnce({ success: true, method: 'contenteditable' })
+        .mockResolvedValueOnce(false); // verifyInput returns false
+
+      await expect(adapter.inputPrompt('Test')).rejects.toThrow('verification failed');
     });
   });
 

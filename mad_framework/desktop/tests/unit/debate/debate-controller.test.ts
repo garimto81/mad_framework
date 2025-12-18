@@ -450,4 +450,155 @@ describe('DebateController', () => {
       );
     });
   });
+
+  describe('error scenarios (Issue #19)', () => {
+    it('should handle empty response from extractResponse', async () => {
+      const element: DebateElement = {
+        id: 'elem-1',
+        name: '보안',
+        status: 'pending',
+        currentScore: 50,
+        scoreHistory: [],
+        versionHistory: [],
+      };
+
+      // Return empty response
+      mockBrowserManager.getAdapter().extractResponse.mockResolvedValue('');
+
+      // After 3 empty responses, circuit breaker should trigger
+      mockRepository.getIncompleteElements.mockResolvedValue([element]);
+
+      await controller.start(defaultConfig);
+
+      // Should emit error event for empty responses
+      const errorCalls = mockEventEmitter.emit.mock.calls.filter(
+        ([event]) => event === 'debate:error'
+      );
+      expect(errorCalls.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should stop after MAX_CONSECUTIVE_EMPTY_RESPONSES (3)', async () => {
+      const element: DebateElement = {
+        id: 'elem-1',
+        name: '보안',
+        status: 'pending',
+        currentScore: 50,
+        scoreHistory: [],
+        versionHistory: [],
+      };
+
+      // Return empty response every time
+      mockBrowserManager.getAdapter().extractResponse.mockResolvedValue('');
+      mockRepository.getIncompleteElements.mockResolvedValue([element]);
+
+      await controller.start(defaultConfig);
+
+      // Should stop after 3 consecutive empty responses
+      expect(mockRepository.updateStatus).toHaveBeenCalledWith(
+        expect.any(String),
+        'error'
+      );
+    });
+
+    it('should emit error event when inputPrompt fails', async () => {
+      const element: DebateElement = {
+        id: 'elem-1',
+        name: '보안',
+        status: 'pending',
+        currentScore: 50,
+        scoreHistory: [],
+        versionHistory: [],
+      };
+
+      mockBrowserManager.getAdapter().inputPrompt.mockRejectedValue(
+        new Error('Input failed: textarea not found')
+      );
+      mockRepository.getIncompleteElements.mockResolvedValue([element]);
+
+      await controller.start(defaultConfig);
+
+      // Should emit error event
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'debate:error',
+        expect.objectContaining({
+          error: expect.stringContaining('Input failed'),
+        })
+      );
+    });
+
+    it('should emit error event when sendMessage fails', async () => {
+      const element: DebateElement = {
+        id: 'elem-1',
+        name: '보안',
+        status: 'pending',
+        currentScore: 50,
+        scoreHistory: [],
+        versionHistory: [],
+      };
+
+      mockBrowserManager.getAdapter().sendMessage.mockRejectedValue(
+        new Error('Send failed: button disabled')
+      );
+      mockRepository.getIncompleteElements.mockResolvedValue([element]);
+
+      await controller.start(defaultConfig);
+
+      // Should emit error event
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'debate:error',
+        expect.objectContaining({
+          error: expect.stringContaining('Send failed'),
+        })
+      );
+    });
+
+    it('should emit error event when waitForResponse times out', async () => {
+      const element: DebateElement = {
+        id: 'elem-1',
+        name: '보안',
+        status: 'pending',
+        currentScore: 50,
+        scoreHistory: [],
+        versionHistory: [],
+      };
+
+      mockBrowserManager.getAdapter().waitForResponse.mockRejectedValue(
+        new Error('Response timeout for chatgpt')
+      );
+      mockRepository.getIncompleteElements.mockResolvedValue([element]);
+
+      await controller.start(defaultConfig);
+
+      // Should emit error event
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'debate:error',
+        expect.objectContaining({
+          error: expect.stringContaining('timeout'),
+        })
+      );
+    });
+
+    it('should handle unparseable JSON response', async () => {
+      const element: DebateElement = {
+        id: 'elem-1',
+        name: '보안',
+        status: 'pending',
+        currentScore: 50,
+        scoreHistory: [],
+        versionHistory: [],
+      };
+
+      // Return invalid JSON
+      mockBrowserManager.getAdapter().extractResponse.mockResolvedValue('Not a valid JSON response');
+      mockRepository.getIncompleteElements.mockResolvedValue([element]);
+
+      await controller.start(defaultConfig);
+
+      // Should continue but emit error after consecutive failures
+      expect(mockRepository.updateStatus).toHaveBeenCalledWith(
+        expect.any(String),
+        'error'
+      );
+    });
+  });
 });

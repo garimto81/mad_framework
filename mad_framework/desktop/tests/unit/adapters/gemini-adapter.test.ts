@@ -55,12 +55,19 @@ describe('GeminiAdapter', () => {
 
   describe('inputPrompt', () => {
     it('should input to .ql-editor', async () => {
-      mockWebContents.executeJavaScript.mockResolvedValue(undefined);
+      // enterPrompt returns {success: true} object from script execution
+      mockWebContents.executeJavaScript.mockResolvedValue({ success: true });
 
       await adapter.inputPrompt('Test prompt');
 
       const script = mockWebContents.executeJavaScript.mock.calls[0][0];
       expect(script).toContain('.ql-editor');
+    });
+
+    it('should throw error when input fails', async () => {
+      mockWebContents.executeJavaScript.mockResolvedValue({ success: false, error: 'editor not found' });
+
+      await expect(adapter.inputPrompt('Test')).rejects.toThrow('Gemini enterPrompt failed');
     });
   });
 });
