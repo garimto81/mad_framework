@@ -15,6 +15,7 @@ from .failure_analyzer import FailureAnalysis, FailureCategory
 @dataclass
 class Pattern:
     """반복 패턴"""
+
     pattern_id: str
     category: FailureCategory
     description: str
@@ -29,7 +30,7 @@ class Pattern:
         """심각한 패턴 여부"""
         return self.occurrence_count >= 5 or self.category in {
             FailureCategory.PHASE_VIOLATION,
-            FailureCategory.VALIDATION_SKIP
+            FailureCategory.VALIDATION_SKIP,
         }
 
     def to_dict(self) -> dict:
@@ -43,13 +44,14 @@ class Pattern:
             "last_seen": self.last_seen,
             "affected_sessions": self.affected_sessions,
             "trend": self.trend,
-            "is_critical": self.is_critical
+            "is_critical": self.is_critical,
         }
 
 
 @dataclass
 class PatternReport:
     """패턴 분석 리포트"""
+
     total_patterns: int
     critical_patterns: int
     patterns: list[Pattern]
@@ -91,14 +93,16 @@ class PatternDetector:
             min_occurrences: 패턴으로 인식할 최소 발생 횟수
         """
         self.min_occurrences = min_occurrences
-        self._pattern_counts: dict[str, dict] = defaultdict(lambda: {
-            "count": 0,
-            "sessions": [],
-            "first_seen": None,
-            "last_seen": None,
-            "category": None,
-            "description": None
-        })
+        self._pattern_counts: dict[str, dict] = defaultdict(
+            lambda: {
+                "count": 0,
+                "sessions": [],
+                "first_seen": None,
+                "last_seen": None,
+                "category": None,
+                "description": None,
+            }
+        )
 
     def add_analysis(self, analysis: FailureAnalysis) -> None:
         """
@@ -142,7 +146,7 @@ class PatternDetector:
                     first_seen=data["first_seen"],
                     last_seen=data["last_seen"],
                     affected_sessions=data["sessions"],
-                    trend=trend
+                    trend=trend,
                 )
                 patterns.append(pattern)
 
@@ -180,7 +184,7 @@ class PatternDetector:
             total_patterns=len(patterns),
             critical_patterns=critical_count,
             patterns=patterns,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
     def _generate_recommendations(self, patterns: list[Pattern]) -> list[str]:
@@ -195,7 +199,7 @@ class PatternDetector:
             FailureCategory.TDD_VIOLATION: "/tdd 명령어를 사용하여 TDD 워크플로우를 따르세요.",
             FailureCategory.TOOL_ERROR: "도구 호출 전 파라미터를 검증하세요.",
             FailureCategory.TIMEOUT: "복잡한 작업을 더 작은 단위로 나누세요.",
-            FailureCategory.PERMISSION_DENIED: "파일/디렉토리 권한을 확인하세요."
+            FailureCategory.PERMISSION_DENIED: "파일/디렉토리 권한을 확인하세요.",
         }
 
         seen_categories = set()
@@ -229,8 +233,7 @@ class PatternDetector:
 
 # 편의 함수
 def detect_patterns_from_analyses(
-    analyses: list[FailureAnalysis],
-    min_occurrences: int = 2
+    analyses: list[FailureAnalysis], min_occurrences: int = 2
 ) -> PatternReport:
     """
     여러 분석 결과에서 패턴 감지

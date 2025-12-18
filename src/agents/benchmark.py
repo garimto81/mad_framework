@@ -15,6 +15,7 @@ import statistics
 @dataclass
 class BenchmarkResult:
     """벤치마크 결과"""
+
     name: str
     execution_mode: str  # "sequential" | "parallel"
     total_time_seconds: float
@@ -23,7 +24,9 @@ class BenchmarkResult:
     failure_count: int
 
 
-def benchmark_sequential(tasks: list[Callable], task_names: list[str] = None) -> BenchmarkResult:
+def benchmark_sequential(
+    tasks: list[Callable], task_names: list[str] = None
+) -> BenchmarkResult:
     """
     순차 실행 벤치마크
 
@@ -56,11 +59,13 @@ def benchmark_sequential(tasks: list[Callable], task_names: list[str] = None) ->
         total_time_seconds=time.time() - start_total,
         individual_times=individual_times,
         success_count=success_count,
-        failure_count=failure_count
+        failure_count=failure_count,
     )
 
 
-async def benchmark_parallel(tasks: list[Callable], task_names: list[str] = None) -> BenchmarkResult:
+async def benchmark_parallel(
+    tasks: list[Callable], task_names: list[str] = None
+) -> BenchmarkResult:
     """
     병렬 실행 벤치마크
 
@@ -85,9 +90,9 @@ async def benchmark_parallel(tasks: list[Callable], task_names: list[str] = None
             return (time.time() - start, False)
 
     start_total = time.time()
-    results = await asyncio.gather(*[
-        timed_task(task, i) for i, task in enumerate(tasks)
-    ])
+    results = await asyncio.gather(
+        *[timed_task(task, i) for i, task in enumerate(tasks)]
+    )
 
     individual_times = [r[0] for r in results]
     success_count = sum(1 for r in results if r[1])
@@ -99,7 +104,7 @@ async def benchmark_parallel(tasks: list[Callable], task_names: list[str] = None
         total_time_seconds=time.time() - start_total,
         individual_times=individual_times,
         success_count=success_count,
-        failure_count=failure_count
+        failure_count=failure_count,
     )
 
 
@@ -114,9 +119,17 @@ def compare_results(sequential: BenchmarkResult, parallel: BenchmarkResult) -> s
     Returns:
         비교 보고서 문자열
     """
-    speedup = sequential.total_time_seconds / parallel.total_time_seconds if parallel.total_time_seconds > 0 else 0
+    speedup = (
+        sequential.total_time_seconds / parallel.total_time_seconds
+        if parallel.total_time_seconds > 0
+        else 0
+    )
     time_saved = sequential.total_time_seconds - parallel.total_time_seconds
-    time_saved_pct = (time_saved / sequential.total_time_seconds) * 100 if sequential.total_time_seconds > 0 else 0
+    time_saved_pct = (
+        (time_saved / sequential.total_time_seconds) * 100
+        if sequential.total_time_seconds > 0
+        else 0
+    )
 
     report = f"""
 {'=' * 60}
@@ -148,6 +161,7 @@ def compare_results(sequential: BenchmarkResult, parallel: BenchmarkResult) -> s
 # 시뮬레이션 태스크 (테스트용)
 # ============================================================================
 
+
 def simulate_task(duration: float = 1.0):
     """시뮬레이션 태스크 (동기)"""
     time.sleep(duration)
@@ -178,7 +192,9 @@ async def run_benchmark_demo():
 
     # Parallel
     print("[2/2] Parallel 실행 중...")
-    async_tasks = [lambda d=task_duration: simulate_task_async(d) for _ in range(num_tasks)]
+    async_tasks = [
+        lambda d=task_duration: simulate_task_async(d) for _ in range(num_tasks)
+    ]
     par_result = await benchmark_parallel(async_tasks)
 
     # 비교

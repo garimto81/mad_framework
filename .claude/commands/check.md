@@ -17,11 +17,13 @@ Options:
   --e2e           E2E 테스트 + 자동 수정 (final-check 흡수)
   --perf          성능 분석 (optimize 흡수)
   --security      보안 검사 심화
+  --api           API 엔드포인트 테스트 (api-test 흡수)
   --all           모든 검사 수행
 
 조합 사용:
   /check --e2e --fix    E2E + 자동 수정
   /check --perf --fix   성능 분석 + 자동 수정
+  /check --api          REST/GraphQL API 테스트
 ```
 
 ## Check Categories
@@ -234,9 +236,40 @@ Action: Fix npm vulnerabilities before deploy
 
 ---
 
+## --api 모드 (API 테스트)
+
+`/check --api`는 기존 `/api-test` 기능을 통합:
+
+```bash
+/check --api                    # 전체 API 테스트
+/check --api /api/users         # 특정 엔드포인트
+/check --api --security         # API 보안 테스트 포함
+```
+
+### API 테스트 항목
+
+| 카테고리 | 검사 항목 |
+|----------|-----------|
+| **상태 코드** | 200, 201, 400, 401, 404, 500 |
+| **응답 형식** | JSON 구조, 필수 필드 |
+| **인증** | 토큰 검증, 권한 확인 |
+| **입력 검증** | 필수 파라미터, 타입 체크 |
+| **성능** | 응답 시간 < 200ms |
+
+### API 보안 테스트 (--api --security)
+
+```bash
+# SQL Injection 테스트
+# XSS 테스트
+# 인증 우회 테스트
+```
+
+---
+
 ## 통합 이력
 
 | 기존 커맨드 | 통합 위치 | 날짜 |
 |------------|----------|------|
 | `/final-check` | `/check --e2e` | 2025-12-11 |
 | `/optimize` | `/check --perf` | 2025-12-11 |
+| `/api-test` | `/check --api` | 2025-12-15 |

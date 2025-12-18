@@ -94,5 +94,5 @@ git push origin main
 
 ## Related
 
-- `/create-pr` - Create pull request after commit
-- `/changelog` - Update changelog before commit
+- `/create pr` - Create pull request after commit
+- `/session changelog` - Update changelog before commit

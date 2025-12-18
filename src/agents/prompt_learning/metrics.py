@@ -15,6 +15,7 @@ import json
 @dataclass
 class PhaseMetrics:
     """Phase별 메트릭스"""
+
     phase: int
     attempts: int = 0
     successes: int = 0
@@ -46,13 +47,14 @@ class PhaseMetrics:
             "success_rate": self.success_rate,
             "failure_rate": self.failure_rate,
             "avg_duration_seconds": self.avg_duration_seconds,
-            "avg_token_usage": self.avg_token_usage
+            "avg_token_usage": self.avg_token_usage,
         }
 
 
 @dataclass
 class SessionMetrics:
     """세션 메트릭스"""
+
     session_id: str
     start_time: str
     end_time: Optional[str] = None
@@ -74,13 +76,14 @@ class SessionMetrics:
             "phases_attempted": self.phases_attempted,
             "phases_completed": self.phases_completed,
             "errors_count": self.errors_count,
-            "success": self.success
+            "success": self.success,
         }
 
 
 @dataclass
 class PromptLearningMetrics:
     """전체 Prompt Learning 메트릭스"""
+
     total_sessions: int = 0
     successful_sessions: int = 0
     failed_sessions: int = 0
@@ -110,7 +113,7 @@ class PromptLearningMetrics:
                 str(k): v.to_dict() for k, v in self.phase_metrics.items()
             },
             "period_start": self.period_start,
-            "period_end": self.period_end
+            "period_end": self.period_end,
         }
 
     def to_markdown(self) -> str:
@@ -165,17 +168,13 @@ class MetricsCollector:
             세션 메트릭스
         """
         session = SessionMetrics(
-            session_id=session_id,
-            start_time=datetime.now().isoformat()
+            session_id=session_id, start_time=datetime.now().isoformat()
         )
         self._sessions[session_id] = session
         return session
 
     def end_session(
-        self,
-        session_id: str,
-        success: bool,
-        token_usage: int = 0
+        self, session_id: str, success: bool, token_usage: int = 0
     ) -> Optional[SessionMetrics]:
         """
         세션 종료
@@ -220,7 +219,7 @@ class MetricsCollector:
         phase: int,
         success: bool,
         duration_seconds: float = 0.0,
-        token_usage: int = 0
+        token_usage: int = 0,
     ) -> None:
         """
         Phase 시도 기록
@@ -232,13 +231,15 @@ class MetricsCollector:
             duration_seconds: 소요 시간
             token_usage: 토큰 사용량
         """
-        self._phase_data[phase].append({
-            "session_id": session_id,
-            "success": success,
-            "duration_seconds": duration_seconds,
-            "token_usage": token_usage,
-            "timestamp": datetime.now().isoformat()
-        })
+        self._phase_data[phase].append(
+            {
+                "session_id": session_id,
+                "success": success,
+                "duration_seconds": duration_seconds,
+                "token_usage": token_usage,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
         if session_id in self._sessions:
             session = self._sessions[session_id]
@@ -254,10 +255,7 @@ class MetricsCollector:
         if session_id in self._sessions:
             self._sessions[session_id].errors_count += 1
 
-    def get_metrics(
-        self,
-        period_days: Optional[int] = None
-    ) -> PromptLearningMetrics:
+    def get_metrics(self, period_days: Optional[int] = None) -> PromptLearningMetrics:
         """
         메트릭스 조회
 
@@ -271,7 +269,8 @@ class MetricsCollector:
         if period_days:
             cutoff = datetime.now() - timedelta(days=period_days)
             sessions = {
-                k: v for k, v in self._sessions.items()
+                k: v
+                for k, v in self._sessions.items()
                 if datetime.fromisoformat(v.start_time) >= cutoff
             }
         else:
@@ -282,7 +281,9 @@ class MetricsCollector:
         successful = sum(1 for s in sessions.values() if s.success)
         failed = total - successful
         total_tokens = sum(s.token_usage for s in sessions.values())
-        durations = [s.duration_seconds for s in sessions.values() if s.duration_seconds > 0]
+        durations = [
+            s.duration_seconds for s in sessions.values() if s.duration_seconds > 0
+        ]
         avg_duration = sum(durations) / len(durations) if durations else 0.0
 
         # Phase별 통계
@@ -291,8 +292,12 @@ class MetricsCollector:
             attempts = len(data)
             successes = sum(1 for d in data if d["success"])
             failures = attempts - successes
-            avg_dur = sum(d["duration_seconds"] for d in data) / attempts if attempts else 0.0
-            avg_tokens = sum(d["token_usage"] for d in data) // attempts if attempts else 0
+            avg_dur = (
+                sum(d["duration_seconds"] for d in data) / attempts if attempts else 0.0
+            )
+            avg_tokens = (
+                sum(d["token_usage"] for d in data) // attempts if attempts else 0
+            )
 
             phase_metrics[phase] = PhaseMetrics(
                 phase=phase,
@@ -300,7 +305,7 @@ class MetricsCollector:
                 successes=successes,
                 failures=failures,
                 avg_duration_seconds=avg_dur,
-                avg_token_usage=avg_tokens
+                avg_token_usage=avg_tokens,
             )
 
         # 기간 설정
@@ -319,7 +324,7 @@ class MetricsCollector:
             avg_session_duration=avg_duration,
             phase_metrics=phase_metrics,
             period_start=period_start,
-            period_end=period_end
+            period_end=period_end,
         )
 
     def get_session(self, session_id: str) -> Optional[SessionMetrics]:
@@ -335,7 +340,7 @@ class MetricsCollector:
         """JSON으로 내보내기"""
         data = {
             "sessions": {k: v.to_dict() for k, v in self._sessions.items()},
-            "metrics": self.get_metrics().to_dict()
+            "metrics": self.get_metrics().to_dict(),
         }
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)

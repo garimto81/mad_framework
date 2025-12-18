@@ -3,12 +3,43 @@ name: debugging-workflow
 description: >
   디버깅 실패 시 자동 트리거되는 체계적 문제 해결 워크플로우.
   DEBUGGING_STRATEGY.md 기반 Phase 0-3 디버깅 프로세스 자동화.
-  트리거: "로그 분석", "debug", "실패", "오류", "버그", "3회 실패"
-version: 1.0.0
+version: 2.0.0
+
+# 2025 Schema: 자동 트리거 조건
+triggers:
+  keywords:
+    - "로그 분석"
+    - "debug"
+    - "실패"
+    - "오류"
+    - "버그"
+    - "3회 실패"
+    - "error"
+    - "exception"
+  file_patterns:
+    - "logs/**/*.log"
+    - "**/*.error"
+    - "**/debug.log"
+  context:
+    - "테스트 실패 분석"
+    - "에러 로그 확인"
+    - "버그 원인 파악"
+
+# 2025 Schema: 스킬 기능 선언
+capabilities:
+  - analyze_logs
+  - add_debug_logs
+  - classify_problem_area
+  - verify_hypothesis
+
+# 2025 Schema: 모델 선호도
+model_preference: sonnet
+
+# 기존 필드 유지
 phase: [1, 2, 5]
 auto_trigger: true
 dependencies:
-  - debugger (subagent)
+  - debugger
 token_budget: 2500
 ---
 
@@ -125,6 +156,79 @@ git blame <file_path> | grep "<line_number>"
 | ❌ 문제 파악 전 해결 | 시간 낭비 |
 | ❌ 여러 곳 동시 수정 | 원인 파악 불가 |
 | ❌ "아마 이거겠지" | 반드시 검증 |
+
+---
+
+## Known Issues 문서화 (Phase 4)
+
+**해결된 이슈를 체계적으로 문서화하여 재발 방지 및 지식 공유.**
+
+### 문서화 시점
+
+- 디버깅 완료 후
+- 동일 이슈 2회+ 발생 시
+- 복잡한 원인 분석이 필요했던 경우
+
+### 문서화 템플릿
+
+```markdown
+### Issue #{N}: {제목}
+
+**증상**: {사용자/시스템이 관찰한 문제}
+
+**원인**: {분석 결과 밝혀진 근본 원인}
+
+**해결**: {적용한 수정사항}
+
+**파일**: `{수정된 파일 경로}:{라인 번호}`
+
+**재발 방지**: {방지 조치 또는 테스트 추가 여부}
+```
+
+### 예시
+
+```markdown
+### Issue #3: 폴더-카테고리 매칭 실패
+
+**증상**: GGMillions, HCL 등 일부 폴더가 진행률 트리에서 매칭되지 않음
+
+**원인**:
+1. DB 카테고리 누락 (Google Sheets 동기화 문제)
+2. 복합 단어 매칭 한계 (`folder_lower in category_words` 규칙)
+
+**해결**:
+- `folder_prefix` 전략 추가 (점수 0.85)
+- `reverse_word` 전략 추가 (점수 0.75)
+
+**파일**: `backend/app/services/progress_service.py:230`
+
+**재발 방지**: 매칭 전략 단위 테스트 추가
+```
+
+### 문서 위치
+
+| 프로젝트 유형 | 권장 위치 |
+|---------------|-----------|
+| 단일 프로젝트 | `docs/KNOWN_ISSUES.md` |
+| 모노레포 | `{component}/docs/KNOWN_ISSUES.md` |
+| 도메인 에이전트 | `.claude/agents/{domain}-domain.md` 내 섹션 |
+
+### 워크플로우 통합
+
+```
+문제 해결 완료
+    ↓
+Known Issue 해당 여부 판단
+    │
+    ├─ 단순/일회성 → 스킵
+    │
+    └─ 복잡/재발 가능 → 문서화
+        ↓
+    KNOWN_ISSUES.md 또는
+    Domain Agent에 기록
+```
+
+---
 
 ## 관련 도구
 

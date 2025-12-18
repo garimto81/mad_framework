@@ -1,6 +1,28 @@
 ---
 name: skill-creator
 description: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, workflows, or tool integrations.
+version: 2.0.0
+
+triggers:
+  keywords:
+    - "skill 생성"
+    - "skill create"
+    - "새 스킬"
+    - "스킬 만들기"
+  file_patterns:
+    - ".claude/skills/**/*"
+  context:
+    - "새 스킬 개발"
+    - "스킬 업데이트"
+
+capabilities:
+  - init_skill
+  - package_skill
+  - validate_skill
+
+model_preference: sonnet
+
+auto_trigger: false
 license: Complete terms in LICENSE.txt
 ---
 

@@ -2,8 +2,32 @@
 name: code-quality-checker
 description: >
   코드 품질 검사 자동화. 린트, 포맷, 타입 체크, 보안 스캔 통합.
-  트리거: "린트", "품질 검사", "코드 체크", "보안 스캔", "ruff", "mypy"
-version: 1.0.0
+version: 2.0.0
+
+triggers:
+  keywords:
+    - "린트"
+    - "품질 검사"
+    - "코드 체크"
+    - "보안 스캔"
+    - "ruff"
+    - "mypy"
+    - "eslint"
+  file_patterns:
+    - "src/**/*.py"
+    - "src/**/*.ts"
+    - "**/*.js"
+  context:
+    - "코드 품질 개선"
+    - "린트 오류 수정"
+
+capabilities:
+  - run_quality_check
+  - auto_fix_lint
+  - security_scan
+
+model_preference: haiku
+
 phase: [2, 2.5]
 auto_trigger: true
 dependencies:

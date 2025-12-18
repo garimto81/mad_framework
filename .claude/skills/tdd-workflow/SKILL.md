@@ -2,12 +2,40 @@
 name: tdd-workflow
 description: >
   Anthropic Best Practices 기반 TDD 워크플로우. Red-Green-Refactor 강제.
-  트리거: "TDD", "테스트 먼저", "Red-Green", "테스트 주도"
-version: 1.0.0
+version: 2.0.0
+
+# 2025 Schema: 자동 트리거 조건
+triggers:
+  keywords:
+    - "TDD"
+    - "테스트 먼저"
+    - "Red-Green"
+    - "테스트 주도"
+    - "test first"
+  file_patterns:
+    - "tests/**/*.py"
+    - "**/*.spec.ts"
+    - "**/*.test.ts"
+    - "**/*.test.js"
+  context:
+    - "테스트 작성 요청"
+    - "TDD 사이클 진행"
+    - "Red Phase 시작"
+
+# 2025 Schema: 스킬 기능 선언
+capabilities:
+  - validate_red_phase
+  - run_tdd_cycle
+  - generate_test_template
+  - check_mock_usage
+
+# 2025 Schema: 모델 선호도
+model_preference: sonnet
+
+# 기존 필드 유지
 phase: [1, 2]
 auto_trigger: true
 dependencies:
-  - test-automator
   - debugger
 token_budget: 1200
 ---

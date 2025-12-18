@@ -2,8 +2,27 @@
 name: phase-validation
 description: >
   Phase 0-6 검증 자동화. 각 Phase별 필수 조건 확인.
-  트리거: "Phase 검증", "validate phase", "Phase 0", "Phase 1" 등
-version: 1.0.0
+version: 2.0.0
+
+triggers:
+  keywords:
+    - "Phase 검증"
+    - "validate phase"
+    - "Phase 0"
+    - "Phase 1"
+    - "Phase 2"
+  file_patterns: []
+  context:
+    - "Phase 진행 상태 확인"
+    - "다음 Phase 조건 검증"
+
+capabilities:
+  - validate_phase
+  - auto_advance
+  - phase_status
+
+model_preference: haiku
+
 phase: [0, 0.5, 1, 2, 2.5, 3, 4, 5, 6]
 auto_trigger: true
 token_budget: 1000

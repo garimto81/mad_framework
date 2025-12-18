@@ -15,6 +15,7 @@ from .session_parser import SessionEvent, SessionSummary, EventType
 
 class FailureCategory(Enum):
     """실패 카테고리"""
+
     PHASE_VIOLATION = "phase_violation"
     PATH_ERROR = "path_error"
     VALIDATION_SKIP = "validation_skip"
@@ -28,6 +29,7 @@ class FailureCategory(Enum):
 @dataclass
 class FailureCause:
     """실패 원인"""
+
     category: FailureCategory
     description: str
     evidence: str
@@ -38,6 +40,7 @@ class FailureCause:
 @dataclass
 class FailureAnalysis:
     """실패 분석 결과"""
+
     session_id: str
     causes: list[FailureCause]
     severity: str  # "low", "medium", "high", "critical"
@@ -62,14 +65,14 @@ class FailureAnalysis:
                     "description": c.description,
                     "evidence": c.evidence,
                     "confidence": c.confidence,
-                    "suggestion": c.suggestion
+                    "suggestion": c.suggestion,
                 }
                 for c in self.causes
             ],
             "severity": self.severity,
             "affected_phase": self.affected_phase,
             "is_recoverable": self.is_recoverable,
-            "recommendations": self.recommendations
+            "recommendations": self.recommendations,
         }
 
 
@@ -81,39 +84,35 @@ class FailureAnalyzer:
         FailureCategory.PHASE_VIOLATION: [
             r"phase\s*(\d+)\s*(?:건너뛰|skip)",
             r"validation\s+fail",
-            r"phase\s*검증\s*실패"
+            r"phase\s*검증\s*실패",
         ],
         FailureCategory.PATH_ERROR: [
             r"file\s*not\s*found",
             r"no\s*such\s*file",
             r"경로.*(?:없|찾을 수 없)",
-            r"FileNotFoundError"
+            r"FileNotFoundError",
         ],
         FailureCategory.VALIDATION_SKIP: [
             r"skip.*validation",
             r"검증.*(?:건너뛰|스킵)",
-            r"--no-verify"
+            r"--no-verify",
         ],
         FailureCategory.TDD_VIOLATION: [
             r"(?:구현|implement).*(?:먼저|first).*(?:테스트|test)",
             r"test.*(?:없이|without)",
-            r"테스트\s*없이"
+            r"테스트\s*없이",
         ],
         FailureCategory.TOOL_ERROR: [
             r"tool.*(?:error|fail)",
             r"command.*fail",
-            r"exit\s*code\s*[1-9]"
+            r"exit\s*code\s*[1-9]",
         ],
-        FailureCategory.TIMEOUT: [
-            r"timeout",
-            r"시간\s*초과",
-            r"timed?\s*out"
-        ],
+        FailureCategory.TIMEOUT: [r"timeout", r"시간\s*초과", r"timed?\s*out"],
         FailureCategory.PERMISSION_DENIED: [
             r"permission\s*denied",
             r"access\s*denied",
-            r"권한.*(?:없|거부)"
-        ]
+            r"권한.*(?:없|거부)",
+        ],
     }
 
     def __init__(self):
@@ -123,7 +122,7 @@ class FailureAnalyzer:
         self,
         session_id: str,
         events: list[SessionEvent],
-        summary: Optional[SessionSummary] = None
+        summary: Optional[SessionSummary] = None,
     ) -> FailureAnalysis:
         """
         세션 실패 분석
@@ -147,14 +146,18 @@ class FailureAnalyzer:
                     causes.append(cause)
 
         # 도구 실패 분석
-        failed_tools = [e for e in events if e.event_type == EventType.TOOL_RESULT and e.success is False]
+        failed_tools = [
+            e
+            for e in events
+            if e.event_type == EventType.TOOL_RESULT and e.success is False
+        ]
         for event in failed_tools:
             cause = FailureCause(
                 category=FailureCategory.TOOL_ERROR,
                 description=f"도구 호출 실패: {event.tool_name}",
                 evidence=str(event.content)[:200],
                 confidence=0.8,
-                suggestion=f"{event.tool_name} 도구 호출 파라미터를 확인하세요"
+                suggestion=f"{event.tool_name} 도구 호출 파라미터를 확인하세요",
             )
             causes.append(cause)
 
@@ -179,7 +182,7 @@ class FailureAnalyzer:
             severity=severity,
             affected_phase=affected_phase,
             is_recoverable=is_recoverable,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
         self._analysis_history.append(analysis)
@@ -195,7 +198,7 @@ class FailureAnalyzer:
                         description=self._get_category_description(category),
                         evidence=error_text[:200],
                         confidence=0.7,
-                        suggestion=self._get_category_suggestion(category)
+                        suggestion=self._get_category_suggestion(category),
                     )
         return None
 
@@ -209,7 +212,7 @@ class FailureAnalyzer:
             FailureCategory.TOOL_ERROR: "도구 실행 오류",
             FailureCategory.TIMEOUT: "시간 초과",
             FailureCategory.PERMISSION_DENIED: "권한 오류",
-            FailureCategory.UNKNOWN: "알 수 없는 오류"
+            FailureCategory.UNKNOWN: "알 수 없는 오류",
         }
         return descriptions.get(category, "알 수 없는 오류")
 
@@ -223,7 +226,7 @@ class FailureAnalyzer:
             FailureCategory.TOOL_ERROR: "도구 파라미터와 권한을 확인하세요",
             FailureCategory.TIMEOUT: "작업을 더 작은 단위로 나누세요",
             FailureCategory.PERMISSION_DENIED: "파일/디렉토리 권한을 확인하세요",
-            FailureCategory.UNKNOWN: "로그를 자세히 확인하세요"
+            FailureCategory.UNKNOWN: "로그를 자세히 확인하세요",
         }
         return suggestions.get(category, "로그를 확인하세요")
 
@@ -243,8 +246,14 @@ class FailureAnalyzer:
         if not causes:
             return "low"
 
-        critical_categories = {FailureCategory.PHASE_VIOLATION, FailureCategory.VALIDATION_SKIP}
-        high_categories = {FailureCategory.TDD_VIOLATION, FailureCategory.PERMISSION_DENIED}
+        critical_categories = {
+            FailureCategory.PHASE_VIOLATION,
+            FailureCategory.VALIDATION_SKIP,
+        }
+        high_categories = {
+            FailureCategory.TDD_VIOLATION,
+            FailureCategory.PERMISSION_DENIED,
+        }
 
         for cause in causes:
             if cause.category in critical_categories:
@@ -260,9 +269,7 @@ class FailureAnalyzer:
         return "low"
 
     def _detect_affected_phase(
-        self,
-        events: list[SessionEvent],
-        causes: list[FailureCause]
+        self, events: list[SessionEvent], causes: list[FailureCause]
     ) -> Optional[int]:
         """영향받는 Phase 탐지"""
         for cause in causes:

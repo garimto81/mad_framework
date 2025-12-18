@@ -254,7 +254,7 @@ Sync with GitHub Issues:
 
 ## Related
 
-- `/create-prd` - Generate PRD first
+- `/create prd` - Generate PRD first
 - `TodoWrite` tool
 - Phase 0.5 task generation
 - `tasks/NNNN-tasks-*.md` files

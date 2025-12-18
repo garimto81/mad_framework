@@ -2,7 +2,7 @@
 
 **목적**: 에이전트 분류 및 활용법
 
-**버전**: 6.0.0 | **업데이트**: 2025-12-11 | **PRD**: PRD-0031
+**버전**: 6.4.0 | **업데이트**: 2025-12-17 | **PRD**: PRD-0031
 
 ---
 
@@ -11,9 +11,9 @@
 | 계층 | 위치 | 개수 | 역할 |
 |------|------|------|------|
 | **내장** | Claude Code | 4개 | 기본 subagent |
-| **커스텀** | `.claude/agents/` | 18개 | 전문 에이전트 |
-| **스킬** | `.claude/skills/` | 13개 | 자동/수동 트리거 |
-| **MCP** | `.claude.json` | 4개 | 외부 도구 연동 |
+| **커스텀** | `.claude/agents/` | 19개 | 전문 에이전트 |
+| **스킬** | `.claude/skills/` | 15개 | 자동/수동 트리거 |
+| **MCP** | `.claude.json` | 1개 | 외부 도구 연동 |
 
 ---
 
@@ -28,7 +28,7 @@
 
 ---
 
-## 2. 커스텀 에이전트 (18개)
+## 2. 커스텀 에이전트 (19개)
 
 ### Tier 1: CORE (6개) - 필수
 
@@ -61,30 +61,38 @@
 | `typescript-dev` | TypeScript 고급 패턴 | sonnet |
 | `python-dev` | Python 고급 패턴 | sonnet |
 
-### Tier 4: TOOLING (2개) - 도구 전문
+### Tier 4: TOOLING (3개) - 도구 전문
 
 | Agent | 용도 | 모델 |
 |-------|------|------|
 | `github-engineer` | GitHub 워크플로우 | sonnet |
 | `claude-expert` | Claude Code, MCP, 에이전트 | opus |
+| `catalog-engineer` | WSOPTV 카탈로그/제목 생성 (Block F/G) | sonnet |
 
 ---
 
-## 3. MCP 서버 (4개)
+## 3. MCP 서버 (1개)
 
 ### 설치된 MCP
 
 | MCP | 패키지 | 용도 |
 |-----|--------|------|
-| `context7` | `@upstash/context7-mcp` | 기술 문서 조회 |
-| `sequential-thinking` | `@modelcontextprotocol/server-sequential-thinking` | 복잡한 추론 |
-| `taskmanager` | `@kazuph/mcp-taskmanager` | 작업 관리 |
+| `code-reviewer` | `@vibesnipe/code-review-mcp` | AI 코드 리뷰 |
 
-### 추가 권장 (API 키 필요)
+### 내장 기능으로 대체됨
+
+| 기존 MCP | 대체 내장 기능 |
+|----------|---------------|
+| `context7` (기술 문서) | `WebSearch` + `WebFetch` |
+| `sequential-thinking` (추론) | `Extended Thinking` (Claude 4 내장) |
+| `taskmanager` (작업 관리) | `TodoWrite` / `TodoRead` |
+| `exa` (웹 검색) | `WebSearch` |
+
+### 추가 권장
 
 | MCP | 패키지 | 용도 |
 |-----|--------|------|
-| `exa` | `exa-mcp-server` | 고급 웹 검색 |
+| `github` | `@anthropic/mcp-server-github` | GitHub API 통합 |
 
 ### 설치 방법
 
@@ -136,19 +144,20 @@ claude mcp remove <name>
 | Python 고급 | `python-dev` |
 | GitHub 워크플로우 | `github-engineer` |
 | Claude Code 설정 | `claude-expert` |
+| WSOPTV 카탈로그 | `catalog-engineer` |
 
 ---
 
 ## 5. 통합 이력 (PRD-0031)
 
-### 삭제된 에이전트 (→ MCP 대체)
+### 삭제된 에이전트 (→ 내장 기능 대체)
 
-| 에이전트 | 대체 MCP |
+| 에이전트 | 대체 기능 |
 |---------|---------|
-| `context7-engineer` | `context7` MCP |
-| `exa-search-specialist` | `exa` MCP |
-| `seq-engineer` | `sequential-thinking` MCP |
-| `taskmanager-planner` | `taskmanager` MCP |
+| `context7-engineer` | `WebSearch` / `WebFetch` 내장 |
+| `exa-search-specialist` | `WebSearch` 내장 |
+| `seq-engineer` | `Extended Thinking` 내장 |
+| `taskmanager-planner` | `TodoWrite` 내장 |
 
 ### 통합된 에이전트
 
@@ -176,5 +185,9 @@ claude mcp remove <name>
 
 | 버전 | 날짜 | 변경 |
 |------|------|------|
+| 6.4.0 | 2025-12-17 | 스킬 개수 수정 (13개 → 15개: supabase-integration, vercel-deployment 추가) |
+| 6.3.0 | 2025-12-16 | MCP 정리 (5개 → 1개), 내장 기능 대체 문서화 |
+| 6.2.0 | 2025-12-16 | MCP 5개로 업데이트 (exa, code-reviewer 추가) |
+| 6.1.0 | 2025-12-12 | `catalog-engineer` 추가 (18 → 19개) |
 | 6.0.0 | 2025-12-11 | PRD-0031 적용: 50개 → 18개 통합, MCP 분리 |
 | 5.0.0 | 2025-12-11 | plugins/ → agents/ 이동, 구조 개편 |

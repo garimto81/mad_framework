@@ -14,6 +14,7 @@ import hashlib
 
 class Variant(Enum):
     """테스트 변형"""
+
     CONTROL = "control"
     TREATMENT = "treatment"
 
@@ -21,6 +22,7 @@ class Variant(Enum):
 @dataclass
 class ABTestConfig:
     """A/B 테스트 설정"""
+
     test_id: str
     control_prompt: str
     treatment_prompt: str
@@ -38,6 +40,7 @@ class ABTestConfig:
 @dataclass
 class ABTestResult:
     """A/B 테스트 결과"""
+
     test_id: str
     control_samples: int
     treatment_samples: int
@@ -56,6 +59,7 @@ class ABTestResult:
 @dataclass
 class TestSample:
     """테스트 샘플"""
+
     sample_id: str
     variant: Variant
     input_data: dict
@@ -135,7 +139,7 @@ class ABTestFramework:
         user_id: str,
         input_data: dict,
         success: bool,
-        latency_ms: float
+        latency_ms: float,
     ) -> TestSample:
         """
         테스트 샘플 기록
@@ -159,7 +163,7 @@ class ABTestFramework:
             variant=variant,
             input_data=input_data,
             success=success,
-            latency_ms=latency_ms
+            latency_ms=latency_ms,
         )
         self.samples[test_id].append(sample)
         return sample
@@ -195,7 +199,7 @@ class ABTestFramework:
                 treatment_success_rate=0.0,
                 lift=0.0,
                 is_significant=False,
-                p_value=1.0
+                p_value=1.0,
             )
 
         control_success = sum(1 for s in control_samples if s.success)
@@ -208,20 +212,24 @@ class ABTestFramework:
         if control_rate > 0:
             lift = (treatment_rate - control_rate) / control_rate
         else:
-            lift = 0.0 if treatment_rate == 0 else float('inf')
+            lift = 0.0 if treatment_rate == 0 else float("inf")
 
         # 통계적 유의성 계산 (간단한 z-test)
         p_value, is_significant = self._calculate_significance(
-            control_count, control_success,
-            treatment_count, treatment_success,
-            config.confidence_level
+            control_count,
+            control_success,
+            treatment_count,
+            treatment_success,
+            config.confidence_level,
         )
 
         # 승자 결정
         winner = None
         total = control_count + treatment_count
         if is_significant and total >= config.min_samples:
-            winner = Variant.TREATMENT if treatment_rate > control_rate else Variant.CONTROL
+            winner = (
+                Variant.TREATMENT if treatment_rate > control_rate else Variant.CONTROL
+            )
 
         return ABTestResult(
             test_id=test_id,
@@ -232,14 +240,11 @@ class ABTestFramework:
             lift=lift,
             is_significant=is_significant,
             p_value=p_value,
-            winner=winner
+            winner=winner,
         )
 
     def _calculate_significance(
-        self,
-        n1: int, x1: int,
-        n2: int, x2: int,
-        confidence_level: float
+        self, n1: int, x1: int, n2: int, x2: int, confidence_level: float
     ) -> tuple[float, bool]:
         """통계적 유의성 계산"""
         import math
@@ -254,7 +259,7 @@ class ABTestFramework:
         if p_pool == 0 or p_pool == 1:
             return 1.0, False
 
-        se = math.sqrt(p_pool * (1 - p_pool) * (1/n1 + 1/n2))
+        se = math.sqrt(p_pool * (1 - p_pool) * (1 / n1 + 1 / n2))
 
         if se == 0:
             return 1.0, False
@@ -275,6 +280,7 @@ class ABTestFramework:
     def _normal_cdf(self, x: float) -> float:
         """표준 정규 분포 CDF 근사"""
         import math
+
         return 0.5 * (1 + math.erf(x / math.sqrt(2)))
 
     def is_test_complete(self, test_id: str) -> bool:
@@ -300,16 +306,13 @@ class ABTestFramework:
             "is_significant": result.is_significant,
             "p_value": result.p_value,
             "winner": result.winner.value if result.winner else None,
-            "total_samples": result.total_samples
+            "total_samples": result.total_samples,
         }
 
 
 # 편의 함수
 def create_ab_test(
-    test_id: str,
-    control_prompt: str,
-    treatment_prompt: str,
-    traffic_split: float = 0.5
+    test_id: str, control_prompt: str, treatment_prompt: str, traffic_split: float = 0.5
 ) -> ABTestFramework:
     """A/B 테스트 생성"""
     framework = ABTestFramework()
@@ -317,7 +320,7 @@ def create_ab_test(
         test_id=test_id,
         control_prompt=control_prompt,
         treatment_prompt=treatment_prompt,
-        traffic_split=traffic_split
+        traffic_split=traffic_split,
     )
     framework.create_test(config)
     return framework

@@ -15,6 +15,7 @@ from pathlib import Path
 @dataclass
 class ValidationResult:
     """검증 결과"""
+
     phase: str
     success: bool
     output: str
@@ -46,7 +47,7 @@ async def run_validator(phase: str, args: list[str] = None) -> ValidationResult:
             success=False,
             output="",
             duration_seconds=0,
-            error=f"Script not found: {script_path}"
+            error=f"Script not found: {script_path}",
         )
 
     cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", str(script_path)] + args
@@ -57,23 +58,22 @@ async def run_validator(phase: str, args: list[str] = None) -> ValidationResult:
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=str(PROJECT_ROOT)
+            cwd=str(PROJECT_ROOT),
         )
 
         stdout, stderr = await asyncio.wait_for(
-            process.communicate(),
-            timeout=300  # 5분 타임아웃
+            process.communicate(), timeout=300  # 5분 타임아웃
         )
 
-        output = stdout.decode('utf-8', errors='replace')
-        error_output = stderr.decode('utf-8', errors='replace')
+        output = stdout.decode("utf-8", errors="replace")
+        error_output = stderr.decode("utf-8", errors="replace")
 
         return ValidationResult(
             phase=phase,
             success=process.returncode == 0,
             output=output,
             duration_seconds=time.time() - start,
-            error=error_output if process.returncode != 0 else None
+            error=error_output if process.returncode != 0 else None,
         )
 
     except asyncio.TimeoutError:
@@ -82,7 +82,7 @@ async def run_validator(phase: str, args: list[str] = None) -> ValidationResult:
             success=False,
             output="",
             duration_seconds=time.time() - start,
-            error="Timeout after 300 seconds"
+            error="Timeout after 300 seconds",
         )
     except Exception as e:
         return ValidationResult(
@@ -90,11 +90,13 @@ async def run_validator(phase: str, args: list[str] = None) -> ValidationResult:
             success=False,
             output="",
             duration_seconds=time.time() - start,
-            error=str(e)
+            error=str(e),
         )
 
 
-async def run_validators_parallel(phases: list[str], args_map: dict = None) -> list[ValidationResult]:
+async def run_validators_parallel(
+    phases: list[str], args_map: dict = None
+) -> list[ValidationResult]:
     """
     여러 Phase 검증기를 병렬로 실행
 
@@ -107,10 +109,7 @@ async def run_validators_parallel(phases: list[str], args_map: dict = None) -> l
     """
     args_map = args_map or {}
 
-    tasks = [
-        run_validator(phase, args_map.get(phase, []))
-        for phase in phases
-    ]
+    tasks = [run_validator(phase, args_map.get(phase, [])) for phase in phases]
 
     results = await asyncio.gather(*tasks)
     return list(results)
@@ -155,22 +154,23 @@ async def run_command_async(name: str, cmd: list[str]) -> ValidationResult:
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=str(PROJECT_ROOT)
+            cwd=str(PROJECT_ROOT),
         )
 
-        stdout, stderr = await asyncio.wait_for(
-            process.communicate(),
-            timeout=120
-        )
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=120)
 
-        output = stdout.decode('utf-8', errors='replace')
+        output = stdout.decode("utf-8", errors="replace")
 
         return ValidationResult(
             phase=name,
             success=process.returncode == 0,
             output=output,
             duration_seconds=time.time() - start,
-            error=stderr.decode('utf-8', errors='replace') if process.returncode != 0 else None
+            error=(
+                stderr.decode("utf-8", errors="replace")
+                if process.returncode != 0
+                else None
+            ),
         )
 
     except Exception as e:
@@ -179,7 +179,7 @@ async def run_command_async(name: str, cmd: list[str]) -> ValidationResult:
             success=False,
             output="",
             duration_seconds=time.time() - start,
-            error=str(e)
+            error=str(e),
         )
 
 
@@ -193,12 +193,7 @@ def format_validation_report(results: list[ValidationResult]) -> str:
     Returns:
         포맷팅된 보고서
     """
-    lines = [
-        "=" * 60,
-        "Phase 검증 보고서 (병렬 실행)",
-        "=" * 60,
-        ""
-    ]
+    lines = ["=" * 60, "Phase 검증 보고서 (병렬 실행)", "=" * 60, ""]
 
     total_time = sum(r.duration_seconds for r in results)
     passed = sum(1 for r in results if r.success)
@@ -224,6 +219,7 @@ def format_validation_report(results: list[ValidationResult]) -> str:
 # ============================================================================
 # CLI Entry Point
 # ============================================================================
+
 
 async def main():
     """메인 함수"""

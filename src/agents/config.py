@@ -11,13 +11,13 @@ from typing import Optional
 # Model Tiering Strategy
 # 문서에서는 간략히 'sonnet', 'haiku'로 표기
 AGENT_MODEL_TIERS = {
-    "supervisor": "claude-sonnet-4-20250514",      # sonnet - 복잡한 의사결정
-    "lead": "claude-sonnet-4-20250514",            # sonnet - 리드 에이전트
-    "researcher": "claude-sonnet-4-20250514",      # sonnet - 일반 태스크
-    "coder": "claude-sonnet-4-20250514",           # sonnet - 코드 생성
-    "reviewer": "claude-sonnet-4-20250514",        # sonnet - 코드 리뷰
-    "validator": "claude-haiku-3-20240307",        # haiku - 간단한 검증 (비용 최적화)
-    "default": "claude-sonnet-4-20250514",         # sonnet
+    "supervisor": "claude-sonnet-4-20250514",  # sonnet - 복잡한 의사결정
+    "lead": "claude-sonnet-4-20250514",  # sonnet - 리드 에이전트
+    "researcher": "claude-sonnet-4-20250514",  # sonnet - 일반 태스크
+    "coder": "claude-sonnet-4-20250514",  # sonnet - 코드 생성
+    "reviewer": "claude-sonnet-4-20250514",  # sonnet - 코드 리뷰
+    "validator": "claude-haiku-3-20240307",  # haiku - 간단한 검증 (비용 최적화)
+    "default": "claude-sonnet-4-20250514",  # sonnet
 }
 
 # Phase별 병렬 에이전트 매핑
@@ -35,6 +35,7 @@ PHASE_AGENTS = {
 @dataclass
 class AgentConfig:
     """에이전트 설정"""
+
     name: str
     role: str
     model: str = field(default_factory=lambda: AGENT_MODEL_TIERS["default"])
@@ -46,7 +47,9 @@ class AgentConfig:
 
     def __post_init__(self):
         if self.system_prompt is None:
-            self.system_prompt = f"당신은 {self.role} 역할을 담당하는 AI 에이전트입니다."
+            self.system_prompt = (
+                f"당신은 {self.role} 역할을 담당하는 AI 에이전트입니다."
+            )
 
 
 # 기본 에이전트 설정

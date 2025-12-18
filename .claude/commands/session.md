@@ -1,11 +1,11 @@
 ---
 name: session
-description: 세션 관리 통합 (compact, journey, changelog)
+description: 세션 관리 통합 (compact, journey, changelog, resume)
 ---
 
 # /session - 세션 관리 통합 커맨드
 
-컨텍스트 압축, 세션 여정 기록, 변경 로그를 관리합니다.
+컨텍스트 압축, 세션 여정 기록, 변경 로그, 세션 이어가기를 관리합니다.
 
 ## Usage
 
@@ -16,9 +16,98 @@ Subcommands:
   compact [options]   컨텍스트 압축
   journey [options]   세션 여정 기록
   changelog [version] 변경 로그 생성
+  resume [options]    이전 세션 이어가기 ⭐NEW
+  save                세션 상태 저장 (종료 전)
 
 기본 동작:
   /session            = /session journey (현재 세션 기록)
+```
+
+---
+
+## /session save - 세션 상태 저장 ⭐
+
+세션 종료 전 현재 작업 상태를 저장하여 다음 세션에서 이어갈 수 있습니다.
+
+```bash
+/session save                 # 현재 상태 저장
+/session save "작업 설명"      # 설명과 함께 저장
+```
+
+### 저장 내용
+
+1. **진행 중인 작업** - 현재 태스크, 미완료 항목
+2. **컨텍스트** - 핵심 파일, 의사결정, 브랜치 정보
+3. **다음 단계** - 이어서 해야 할 작업
+
+### 저장 파일 형식
+
+```markdown
+# Session State: 2025-12-11 15:30
+
+## 현재 작업
+- **Issue**: #42 - 인증 기능 구현
+- **Branch**: feat/issue-42-auth
+- **진행률**: 60%
+
+## 완료된 항목
+- [x] API 엔드포인트 설계
+- [x] 데이터베이스 스키마 생성
+
+## 미완료 항목
+- [ ] JWT 토큰 발급 로직
+- [ ] 테스트 코드 작성
+
+## 핵심 컨텍스트
+- 파일: `src/auth/handler.py` - 메인 로직
+- 결정: Supabase Auth 대신 커스텀 JWT 사용
+
+## 다음 단계
+1. `generate_token()` 함수 구현
+2. 만료 시간 설정 (24시간)
+3. 단위 테스트 작성
+
+## 메모
+- refresh token은 다음 PR에서 처리
+```
+
+---
+
+## /session resume - 세션 이어가기 ⭐
+
+저장된 세션 상태를 로드하여 작업을 이어갑니다.
+
+```bash
+/session resume               # 최근 세션 로드
+/session resume list          # 저장된 세션 목록
+/session resume [date]        # 특정 날짜 세션 로드
+/session resume [filename]    # 특정 파일 로드
+```
+
+### 동작 방식
+
+1. `.claude/sessions/` 에서 저장된 상태 파일 검색
+2. 세션 상태 로드 및 표시
+3. 미완료 항목을 TodoWrite로 자동 등록
+4. 컨텍스트 복원 (핵심 파일 요약)
+
+### 예시 출력
+
+```
+📂 Loading session: 2025-12-11-auth-feature.md
+
+## 이전 세션 요약
+- Issue #42: 인증 기능 구현 (60% 완료)
+- Branch: feat/issue-42-auth
+
+## 미완료 작업 (자동 등록됨)
+1. JWT 토큰 발급 로직 구현
+2. 테스트 코드 작성
+
+## 핵심 컨텍스트
+- src/auth/handler.py - 메인 로직 파일
+
+이어서 작업하시겠습니까? (Y/n)
 ```
 
 ---
@@ -191,8 +280,25 @@ Subcommands:
 
 1. **40% 도달 시**: `/session compact` 계획
 2. **60% 도달 시**: 태스크 완료 후 즉시 압축
-3. **세션 종료 시**: `/session journey save`로 기록 보존
-4. **릴리즈 전**: `/session changelog [version]` 실행
+3. **세션 종료 시**: `/session save`로 상태 저장 ⭐
+4. **세션 시작 시**: `/session resume`로 이전 작업 이어가기 ⭐
+5. **릴리즈 전**: `/session changelog [version]` 실행
+
+### 권장 워크플로우
+
+```
+[세션 시작]
+/session resume              # 이전 작업 불러오기
+↓
+[작업 진행]
+... 코드 작성 ...
+↓
+[세션 종료 전]
+/session save "인증 기능 70% 완료"
+↓
+[다음 세션]
+/session resume              # 자동으로 이어서 시작
+```
 
 ---
 
@@ -211,3 +317,5 @@ Subcommands:
 | `/compact` | `/session compact` | 2025-12-11 |
 | `/journey` | `/session journey` | 2025-12-11 |
 | `/changelog` | `/session changelog` | 2025-12-11 |
+| (신규) | `/session save` | 2025-12-11 |
+| (신규) | `/session resume` | 2025-12-11 |

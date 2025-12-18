@@ -29,13 +29,9 @@ ggp_ojt_v2/
 frontend/
 backend/
 
-# archive-analyzer 서브 프로젝트 (별도 레포)
-archive-analyzer/data/
-archive-analyzer/*.csv
-archive-analyzer/scripts/extract_metadata_netdrive.py
-archive-analyzer/scripts/rescan_netdrive.py
-archive-analyzer/scripts/retry_failed.py
-archive-analyzer/test_path.py
+# 별도 레포 프로젝트들
+archive-analyzer/
+archive-statistics/
 
 # 로컬 에이전트 데이터
 .agent/
@@ -46,9 +42,22 @@ archive-analyzer/test_path.py
 __pycache__/
 *.pyc
 node_modules/
+
+# 환경 변수 (민감 정보)
 .env
-.env.*
+.env.local
+.env.*.local
+.env.development
+.env.production
+!.env.template
 !.env.example
+
+# 인증서 및 키
+*.pem
+*.key
+*.p12
+*credentials*.json
+!*credentials*.template.json
 
 # 백업 파일
 *.backup
@@ -64,6 +73,7 @@ nul
 !.mcp.json.example
 
 # Claude 설정 - 핵심 디렉토리는 추적
+!.claude/config/
 .claude/evolution/.env
 .claude/evolution/data/
 .claude/evolution/feedback/*.jsonl

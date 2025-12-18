@@ -3,7 +3,26 @@ name: pr-review-agent
 description: >
   PR 코드 리뷰, 개선 제안, 자동 머지 에이전트.
   코드 품질, 테스트, 보안 검사 통합.
-version: 1.0.0
+version: 2.0.0
+
+triggers:
+  keywords:
+    - "PR review"
+    - "PR 리뷰"
+    - "코드 리뷰"
+    - "auto merge"
+  file_patterns: []
+  context:
+    - "Pull Request 검토"
+    - "코드 리뷰 요청"
+
+capabilities:
+  - parallel_code_check
+  - review_checklist
+  - auto_merge
+
+model_preference: sonnet
+
 auto_trigger: false
 ---
 

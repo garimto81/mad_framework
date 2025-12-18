@@ -255,11 +255,11 @@ $ /work API 응답 캐싱 추가
 
 | 커맨드 | 연동 시점 |
 |--------|----------|
-| `/pre-work` | Phase 1 전 (선택) |
+| `/research plan` | Phase 1 전 (선택) |
 | `/tdd` | Phase 5 |
-| `/issue-failed` | E2E 3회 실패 시 |
+| `/issue failed` | E2E 3회 실패 시 |
 | `/commit` | 완료 후 |
-| `/create-pr` | 완료 후 |
+| `/create pr` | 완료 후 |
 
 ## 연동 에이전트
 
@@ -267,8 +267,8 @@ $ /work API 응답 캐싱 추가
 |-------|----------|------|
 | 1 | `Explore` x2 | 병렬 분석 |
 | 2 | `general-purpose` | 이슈/문서 처리 |
-| 4 | `playwright-engineer` | E2E 테스트 |
-| 5 | `test-automator` | TDD 검증 |
+| 4 | `test-engineer` | E2E 테스트 |
+| 5 | `test-engineer` | TDD 검증 |
 
 ## 옵션
 

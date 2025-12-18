@@ -2,8 +2,27 @@
 name: issue-resolution
 description: >
   GitHub 이슈 해결 워크플로우. 분석 → 구현 → 검증 자동화.
-  트리거: "이슈 해결", "fix issue", "이슈 분석", "GitHub issue"
-version: 1.0.0
+version: 2.0.0
+
+triggers:
+  keywords:
+    - "이슈 해결"
+    - "fix issue"
+    - "이슈 분석"
+    - "GitHub issue"
+    - "버그 수정"
+  file_patterns: []
+  context:
+    - "GitHub 이슈 처리"
+    - "버그 리포트 분석"
+
+capabilities:
+  - analyze_issue
+  - resolve_issue
+  - handle_failed
+
+model_preference: sonnet
+
 phase: [1, 2]
 auto_trigger: true
 dependencies:

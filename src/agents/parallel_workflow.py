@@ -21,18 +21,21 @@ from .config import AGENT_MODEL_TIERS
 # State Definitions
 # ============================================================================
 
+
 class WorkflowState(TypedDict):
     """워크플로우 상태"""
-    task: str                                          # 원본 태스크
-    subtasks: list[str]                                # 분해된 서브태스크
-    results: Annotated[list[dict], operator.add]       # 에이전트 결과 (Reducer)
-    final_output: str                                  # 최종 출력
-    error_count: int                                   # 에러 횟수
-    metadata: dict                                     # 추가 메타데이터
+
+    task: str  # 원본 태스크
+    subtasks: list[str]  # 분해된 서브태스크
+    results: Annotated[list[dict], operator.add]  # 에이전트 결과 (Reducer)
+    final_output: str  # 최종 출력
+    error_count: int  # 에러 횟수
+    metadata: dict  # 추가 메타데이터
 
 
 class SubtaskResult(TypedDict):
     """서브태스크 실행 결과"""
+
     agent_id: str
     subtask: str
     output: str
@@ -44,6 +47,7 @@ class SubtaskResult(TypedDict):
 # Model Initialization
 # ============================================================================
 
+
 def get_model(tier: str = "default") -> ChatAnthropic:
     """티어별 모델 인스턴스 생성"""
     model_name = AGENT_MODEL_TIERS.get(tier, AGENT_MODEL_TIERS["default"])
@@ -53,6 +57,7 @@ def get_model(tier: str = "default") -> ChatAnthropic:
 # ============================================================================
 # Node Functions
 # ============================================================================
+
 
 def supervisor_node(state: WorkflowState) -> dict:
     """
@@ -82,7 +87,7 @@ def supervisor_node(state: WorkflowState) -> dict:
 
     messages = [
         SystemMessage(content=system_prompt),
-        HumanMessage(content=f"다음 태스크를 분해하세요:\n\n{state['task']}")
+        HumanMessage(content=f"다음 태스크를 분해하세요:\n\n{state['task']}"),
     ]
 
     response = model.invoke(messages)
@@ -91,7 +96,7 @@ def supervisor_node(state: WorkflowState) -> dict:
     # JSON 파싱
     try:
         # JSON 블록 추출
-        json_match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
+        json_match = re.search(r"```json\s*(.*?)\s*```", content, re.DOTALL)
         if json_match:
             parsed = json.loads(json_match.group(1))
         else:
@@ -99,8 +104,16 @@ def supervisor_node(state: WorkflowState) -> dict:
         subtasks = parsed.get("subtasks", [])
     except json.JSONDecodeError:
         # 폴백: 줄바꿈으로 분리
-        lines = [line.strip() for line in content.split('\n') if line.strip() and not line.startswith('#')]
-        subtasks = lines[:3] if len(lines) >= 3 else lines + ["추가 분석 필요"] * (3 - len(lines))
+        lines = [
+            line.strip()
+            for line in content.split("\n")
+            if line.strip() and not line.startswith("#")
+        ]
+        subtasks = (
+            lines[:3]
+            if len(lines) >= 3
+            else lines + ["추가 분석 필요"] * (3 - len(lines))
+        )
 
     return {"subtasks": subtasks}
 
@@ -115,19 +128,22 @@ def create_subagent_node(agent_id: int):
     Returns:
         노드 함수
     """
+
     def subagent_node(state: WorkflowState) -> dict:
         model = get_model("researcher")
 
         # 해당 서브태스크 가져오기
         if agent_id >= len(state["subtasks"]):
             return {
-                "results": [{
-                    "agent_id": str(agent_id),
-                    "subtask": "N/A",
-                    "output": "서브태스크 없음",
-                    "success": False,
-                    "error": "Index out of range"
-                }]
+                "results": [
+                    {
+                        "agent_id": str(agent_id),
+                        "subtask": "N/A",
+                        "output": "서브태스크 없음",
+                        "success": False,
+                        "error": "Index out of range",
+                    }
+                ]
             }
 
         subtask = state["subtasks"][agent_id]
@@ -140,7 +156,7 @@ def create_subagent_node(agent_id: int):
 
         messages = [
             SystemMessage(content=system_prompt),
-            HumanMessage(content=f"서브태스크:\n{subtask}\n\n이 태스크를 수행하세요.")
+            HumanMessage(content=f"서브태스크:\n{subtask}\n\n이 태스크를 수행하세요."),
         ]
 
         try:
@@ -150,7 +166,7 @@ def create_subagent_node(agent_id: int):
                 "subtask": subtask,
                 "output": response.content,
                 "success": True,
-                "error": None
+                "error": None,
             }
         except Exception as e:
             result: SubtaskResult = {
@@ -158,7 +174,7 @@ def create_subagent_node(agent_id: int):
                 "subtask": subtask,
                 "output": "",
                 "success": False,
-                "error": str(e)
+                "error": str(e),
             }
 
         return {"results": [result]}
@@ -176,17 +192,21 @@ def aggregator_node(state: WorkflowState) -> dict:
     successful_results = [r for r in state["results"] if r.get("success", False)]
     failed_results = [r for r in state["results"] if not r.get("success", False)]
 
-    results_text = "\n\n".join([
-        f"## 에이전트 #{r['agent_id']} 결과\n**서브태스크**: {r['subtask']}\n**출력**:\n{r['output']}"
-        for r in successful_results
-    ])
+    results_text = "\n\n".join(
+        [
+            f"## 에이전트 #{r['agent_id']} 결과\n**서브태스크**: {r['subtask']}\n**출력**:\n{r['output']}"
+            for r in successful_results
+        ]
+    )
 
     if failed_results:
         results_text += "\n\n## 실패한 태스크\n"
-        results_text += "\n".join([
-            f"- 에이전트 #{r['agent_id']}: {r.get('error', 'Unknown error')}"
-            for r in failed_results
-        ])
+        results_text += "\n".join(
+            [
+                f"- 에이전트 #{r['agent_id']}: {r.get('error', 'Unknown error')}"
+                for r in failed_results
+            ]
+        )
 
     system_prompt = """당신은 결과 종합 전문가입니다.
 여러 서브에이전트의 결과를 분석하고 종합적인 최종 보고서를 작성하세요.
@@ -199,7 +219,9 @@ def aggregator_node(state: WorkflowState) -> dict:
 
     messages = [
         SystemMessage(content=system_prompt),
-        HumanMessage(content=f"원본 태스크: {state['task']}\n\n서브에이전트 결과:\n{results_text}")
+        HumanMessage(
+            content=f"원본 태스크: {state['task']}\n\n서브에이전트 결과:\n{results_text}"
+        ),
     ]
 
     response = model.invoke(messages)
@@ -218,6 +240,7 @@ def error_handler_node(state: WorkflowState) -> dict:
 # ============================================================================
 # Graph Builder
 # ============================================================================
+
 
 def build_parallel_workflow(num_agents: int = 3) -> StateGraph:
     """
@@ -262,6 +285,7 @@ def build_parallel_workflow(num_agents: int = 3) -> StateGraph:
 # Execution Functions
 # ============================================================================
 
+
 def run_parallel_task(task: str, num_agents: int = 3) -> dict:
     """
     병렬 태스크 실행
@@ -281,7 +305,7 @@ def run_parallel_task(task: str, num_agents: int = 3) -> dict:
         "results": [],
         "final_output": "",
         "error_count": 0,
-        "metadata": {}
+        "metadata": {},
     }
 
     result = workflow.invoke(initial_state)
@@ -307,7 +331,7 @@ async def run_parallel_task_async(task: str, num_agents: int = 3) -> dict:
         "results": [],
         "final_output": "",
         "error_count": 0,
-        "metadata": {}
+        "metadata": {},
     }
 
     result = await workflow.ainvoke(initial_state)
@@ -317,6 +341,7 @@ async def run_parallel_task_async(task: str, num_agents: int = 3) -> dict:
 # ============================================================================
 # Specialized Workflows
 # ============================================================================
+
 
 def build_research_workflow() -> StateGraph:
     """리서치 전용 워크플로우"""
@@ -342,7 +367,9 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 2:
         print("Usage: python parallel_workflow.py '<task>'")
-        print("Example: python parallel_workflow.py '프로젝트 구조 분석 및 개선안 제시'")
+        print(
+            "Example: python parallel_workflow.py '프로젝트 구조 분석 및 개선안 제시'"
+        )
         sys.exit(1)
 
     task = sys.argv[1]

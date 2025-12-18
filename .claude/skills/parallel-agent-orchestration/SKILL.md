@@ -2,8 +2,27 @@
 name: parallel-agent-orchestration
 description: >
   병렬 에이전트 오케스트레이션. Fan-Out/Fan-In 패턴으로 다중 에이전트 실행.
-  트리거: "병렬 개발", "parallel", "multi-agent", "동시 실행"
-version: 1.0.0
+version: 2.0.0
+
+triggers:
+  keywords:
+    - "병렬 개발"
+    - "parallel"
+    - "multi-agent"
+    - "동시 실행"
+    - "병렬 테스트"
+  file_patterns: []
+  context:
+    - "다중 작업 동시 처리"
+    - "병렬 에이전트 실행"
+
+capabilities:
+  - run_parallel
+  - fan_out_fan_in
+  - aggregate_results
+
+model_preference: sonnet
+
 phase: [1, 2]
 auto_trigger: true
 dependencies:

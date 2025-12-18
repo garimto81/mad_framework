@@ -210,7 +210,7 @@ gh issue edit <number> --body "새 본문"
 |------|----------|------|
 | 원인 분석 | `debugger` | 근본 원인 파악 |
 | 코드 수정 | `code-reviewer` | 코드 품질 확인 |
-| 테스트 | `test-automator` | 테스트 작성 |
+| 테스트 | `test-engineer` | 테스트 작성 |
 
 ---
 

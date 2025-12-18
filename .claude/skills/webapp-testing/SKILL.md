@@ -4,6 +4,27 @@ description: >
   Docker 환경에서 Playwright E2E 테스트 실행.
   브라우저 미종료 문제 해결, 스크린샷, 로그 캡처 지원.
 version: 2.0.0
+
+triggers:
+  keywords:
+    - "webapp test"
+    - "E2E docker"
+    - "playwright test"
+    - "브라우저 테스트"
+  file_patterns:
+    - "playwright.config.ts"
+    - "e2e/**/*"
+  context:
+    - "웹앱 E2E 테스트"
+    - "Docker 환경 테스트"
+
+capabilities:
+  - safe_browser
+  - docker_server_test
+  - screenshot_capture
+
+model_preference: sonnet
+
 auto_trigger: false
 ---
 

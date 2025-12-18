@@ -16,6 +16,7 @@ from functools import lru_cache
 
 class EventType(Enum):
     """세션 이벤트 타입"""
+
     USER_MESSAGE = "user_message"
     ASSISTANT_MESSAGE = "assistant_message"
     TOOL_CALL = "tool_call"
@@ -27,6 +28,7 @@ class EventType(Enum):
 @dataclass
 class SessionEvent:
     """세션 이벤트"""
+
     timestamp: str
     event_type: EventType
     content: dict
@@ -36,7 +38,7 @@ class SessionEvent:
     raw_data: dict = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'SessionEvent':
+    def from_dict(cls, data: dict) -> "SessionEvent":
         """딕셔너리에서 SessionEvent 생성"""
         # 이벤트 타입 추론
         event_type = EventType.UNKNOWN
@@ -56,16 +58,21 @@ class SessionEvent:
             timestamp=data.get("timestamp", ""),
             event_type=event_type,
             content=data.get("content", {}),
-            tool_name=data.get("tool", {}).get("name") if isinstance(data.get("tool"), dict) else data.get("tool"),
+            tool_name=(
+                data.get("tool", {}).get("name")
+                if isinstance(data.get("tool"), dict)
+                else data.get("tool")
+            ),
             success=data.get("success"),
             error=data.get("error"),
-            raw_data=data
+            raw_data=data,
         )
 
 
 @dataclass
 class SessionSummary:
     """세션 요약"""
+
     session_id: str
     total_events: int
     user_messages: int
@@ -89,7 +96,7 @@ class SessionSummary:
             "success": self.success,
             "duration_seconds": self.duration_seconds,
             "start_time": self.start_time,
-            "end_time": self.end_time
+            "end_time": self.end_time,
         }
 
 
@@ -134,12 +141,14 @@ class SessionParser:
                     events.append(event)
                 except json.JSONDecodeError as e:
                     # JSON 파싱 실패 시 에러 이벤트로 기록
-                    events.append(SessionEvent(
-                        timestamp="",
-                        event_type=EventType.ERROR,
-                        content={"line": line_num, "raw": line[:100]},
-                        error=f"JSON parse error: {e}"
-                    ))
+                    events.append(
+                        SessionEvent(
+                            timestamp="",
+                            event_type=EventType.ERROR,
+                            content={"line": line_num, "raw": line[:100]},
+                            error=f"JSON parse error: {e}",
+                        )
+                    )
 
         self._events = events
         return events
@@ -170,7 +179,9 @@ class SessionParser:
         self._events = events
         return events
 
-    def parse_file_streaming(self, log_path: Path | str) -> Generator[SessionEvent, None, None]:
+    def parse_file_streaming(
+        self, log_path: Path | str
+    ) -> Generator[SessionEvent, None, None]:
         """
         스트리밍 방식 세션 로그 파싱 (메모리 효율적)
 
@@ -218,29 +229,35 @@ class SessionParser:
                 tool_calls=0,
                 errors=[],
                 success=True,
-                duration_seconds=0.0
+                duration_seconds=0.0,
             )
 
         # 통계 계산
         user_messages = sum(1 for e in events if e.event_type == EventType.USER_MESSAGE)
-        assistant_messages = sum(1 for e in events if e.event_type == EventType.ASSISTANT_MESSAGE)
+        assistant_messages = sum(
+            1 for e in events if e.event_type == EventType.ASSISTANT_MESSAGE
+        )
         tool_calls = sum(1 for e in events if e.event_type == EventType.TOOL_CALL)
 
         # 에러 수집
         errors = []
         for event in events:
             if event.error:
-                errors.append({
-                    "timestamp": event.timestamp,
-                    "tool": event.tool_name,
-                    "error": event.error
-                })
+                errors.append(
+                    {
+                        "timestamp": event.timestamp,
+                        "tool": event.tool_name,
+                        "error": event.error,
+                    }
+                )
             if event.event_type == EventType.ERROR:
-                errors.append({
-                    "timestamp": event.timestamp,
-                    "tool": event.tool_name,
-                    "error": str(event.content)
-                })
+                errors.append(
+                    {
+                        "timestamp": event.timestamp,
+                        "tool": event.tool_name,
+                        "error": str(event.content),
+                    }
+                )
 
         # 세션 ID 추출
         session_id = "unknown"
@@ -267,7 +284,7 @@ class SessionParser:
             success=success,
             duration_seconds=duration,
             start_time=start_time,
-            end_time=end_time
+            end_time=end_time,
         )
 
     # 타임스탬프 파싱 형식 (클래스 레벨 상수)
@@ -275,7 +292,7 @@ class SessionParser:
         "%Y-%m-%dT%H:%M:%S.%fZ",
         "%Y-%m-%dT%H:%M:%SZ",
         "%Y-%m-%d %H:%M:%S.%f",
-        "%Y-%m-%d %H:%M:%S"
+        "%Y-%m-%d %H:%M:%S",
     ]
 
     @staticmethod
@@ -305,30 +322,43 @@ class SessionParser:
 
         return 0.0
 
-    def get_tool_calls(self, events: Optional[list[SessionEvent]] = None) -> list[SessionEvent]:
+    def get_tool_calls(
+        self, events: Optional[list[SessionEvent]] = None
+    ) -> list[SessionEvent]:
         """도구 호출 이벤트만 필터링"""
         if events is None:
             events = self._events
         return [e for e in events if e.event_type == EventType.TOOL_CALL]
 
-    def get_errors(self, events: Optional[list[SessionEvent]] = None) -> list[SessionEvent]:
+    def get_errors(
+        self, events: Optional[list[SessionEvent]] = None
+    ) -> list[SessionEvent]:
         """에러 이벤트만 필터링"""
         if events is None:
             events = self._events
         return [e for e in events if e.error or e.event_type == EventType.ERROR]
 
-    def get_failed_tool_calls(self, events: Optional[list[SessionEvent]] = None) -> list[SessionEvent]:
+    def get_failed_tool_calls(
+        self, events: Optional[list[SessionEvent]] = None
+    ) -> list[SessionEvent]:
         """실패한 도구 호출 필터링"""
         if events is None:
             events = self._events
-        return [e for e in events if e.event_type == EventType.TOOL_RESULT and e.success is False]
+        return [
+            e
+            for e in events
+            if e.event_type == EventType.TOOL_RESULT and e.success is False
+        ]
 
 
 # ============================================================================
 # 유틸리티 함수
 # ============================================================================
 
-def find_session_logs(directory: Path | str, pattern: str = "*.jsonl") -> Iterator[Path]:
+
+def find_session_logs(
+    directory: Path | str, pattern: str = "*.jsonl"
+) -> Iterator[Path]:
     """
     디렉토리에서 세션 로그 파일 찾기
 
@@ -377,7 +407,7 @@ def parse_multiple_sessions(log_paths: list[Path | str]) -> dict[str, SessionSum
                 tool_calls=0,
                 errors=[{"error": str(e)}],
                 success=False,
-                duration_seconds=0.0
+                duration_seconds=0.0,
             )
 
     return summaries

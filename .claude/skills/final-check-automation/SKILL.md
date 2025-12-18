@@ -2,12 +2,35 @@
 name: final-check-automation
 description: >
   FINAL_CHECK 워크플로우 자동화. E2E 테스트, Phase 3-5 자동 진행.
-  트리거: "E2E", "최종 검증", "Phase 5", "FINAL_CHECK", "배포 전"
-version: 1.0.0
+version: 2.0.0
+
+triggers:
+  keywords:
+    - "E2E"
+    - "최종 검증"
+    - "Phase 5"
+    - "FINAL_CHECK"
+    - "배포 전"
+    - "playwright"
+  file_patterns:
+    - "tests/e2e/**/*"
+    - "**/*.spec.ts"
+  context:
+    - "배포 전 검증"
+    - "E2E 테스트 실행"
+
+capabilities:
+  - run_final_check
+  - e2e_test
+  - security_audit
+  - version_decision
+
+model_preference: sonnet
+
 phase: [5]
 auto_trigger: true
 dependencies:
-  - playwright-engineer
+  - test-engineer
   - security-auditor
 token_budget: 2000
 ---

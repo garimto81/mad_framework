@@ -13,6 +13,7 @@ import json
 
 class OptimizationStatus(Enum):
     """최적화 상태"""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -22,6 +23,7 @@ class OptimizationStatus(Enum):
 @dataclass
 class PhaseSignature:
     """Phase 검증을 위한 DSPy Signature 정의"""
+
     phase: int
     input_fields: list[str]
     output_fields: list[str]
@@ -35,7 +37,7 @@ class PhaseSignature:
             "input_fields": self.input_fields,
             "output_fields": self.output_fields,
             "instructions": self.instructions,
-            "examples": self.examples
+            "examples": self.examples,
         }
 
     @classmethod
@@ -46,13 +48,14 @@ class PhaseSignature:
             input_fields=data["input_fields"],
             output_fields=data["output_fields"],
             instructions=data["instructions"],
-            examples=data.get("examples", [])
+            examples=data.get("examples", []),
         )
 
 
 @dataclass
 class OptimizationResult:
     """최적화 결과"""
+
     status: OptimizationStatus
     original_score: float
     optimized_score: float
@@ -74,21 +77,21 @@ DEFAULT_SIGNATURES: dict[int, PhaseSignature] = {
         input_fields=["prd_content"],
         output_fields=["is_valid", "missing_sections", "suggestions"],
         instructions="PRD 문서가 8개 필수 섹션을 포함하는지 검증합니다.",
-        examples=[]
+        examples=[],
     ),
     1: PhaseSignature(
         phase=1,
         input_fields=["source_files", "test_files"],
         output_fields=["is_paired", "unpaired_files", "suggestions"],
         instructions="소스 파일과 테스트 파일이 1:1로 매칭되는지 검증합니다.",
-        examples=[]
+        examples=[],
     ),
     2: PhaseSignature(
         phase=2,
         input_fields=["test_results", "coverage"],
         output_fields=["all_passed", "failed_tests", "coverage_met"],
         instructions="모든 테스트가 통과하고 커버리지 기준을 충족하는지 검증합니다.",
-        examples=[]
+        examples=[],
     ),
 }
 
@@ -130,10 +133,7 @@ class DSPyOptimizer:
         return True
 
     def optimize(
-        self,
-        phase: int,
-        training_data: list[dict],
-        num_iterations: int = 10
+        self, phase: int, training_data: list[dict], num_iterations: int = 10
     ) -> OptimizationResult:
         """
         MIPROv2를 사용한 프롬프트 최적화
@@ -152,7 +152,7 @@ class DSPyOptimizer:
                 original_score=0.0,
                 optimized_score=0.0,
                 improvement=0.0,
-                error_message=f"Unknown phase: {phase}"
+                error_message=f"Unknown phase: {phase}",
             )
 
         if not training_data:
@@ -161,7 +161,7 @@ class DSPyOptimizer:
                 original_score=0.0,
                 optimized_score=0.0,
                 improvement=0.0,
-                error_message="No training data provided"
+                error_message="No training data provided",
             )
 
         # 실제 DSPy MIPROv2 최적화 로직
@@ -184,16 +184,14 @@ class DSPyOptimizer:
             optimized_score=optimized_score,
             improvement=improvement,
             optimized_prompt=optimized_prompt,
-            iterations=num_iterations
+            iterations=num_iterations,
         )
 
         self._optimization_history.append(result)
         return result
 
     def _calculate_baseline_score(
-        self,
-        signature: PhaseSignature,
-        training_data: list[dict]
+        self, signature: PhaseSignature, training_data: list[dict]
     ) -> float:
         """베이스라인 점수 계산"""
         # 시뮬레이션: 예시 개수에 따라 점수 증가
@@ -202,16 +200,15 @@ class DSPyOptimizer:
         return base_score + example_bonus
 
     def _run_optimization(
-        self,
-        signature: PhaseSignature,
-        training_data: list[dict],
-        num_iterations: int
+        self, signature: PhaseSignature, training_data: list[dict], num_iterations: int
     ) -> tuple[str, float]:
         """최적화 실행"""
         # 시뮬레이션: 반복에 따라 점수 개선
         optimized_prompt = f"[Optimized] {signature.instructions}"
         improvement_rate = min(num_iterations * 0.02, 0.25)
-        optimized_score = self._calculate_baseline_score(signature, training_data) + improvement_rate
+        optimized_score = (
+            self._calculate_baseline_score(signature, training_data) + improvement_rate
+        )
         return optimized_prompt, min(optimized_score, 0.95)
 
     def get_optimization_history(self) -> list[OptimizationResult]:
@@ -220,10 +217,7 @@ class DSPyOptimizer:
 
     def save_signatures(self, path: str) -> None:
         """Signature들을 파일로 저장"""
-        data = {
-            str(phase): sig.to_dict()
-            for phase, sig in self.signatures.items()
-        }
+        data = {str(phase): sig.to_dict() for phase, sig in self.signatures.items()}
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -244,9 +238,7 @@ def create_optimizer(model: str = "claude-sonnet-4") -> DSPyOptimizer:
 
 
 def optimize_phase(
-    phase: int,
-    training_data: list[dict],
-    model: str = "claude-sonnet-4"
+    phase: int, training_data: list[dict], model: str = "claude-sonnet-4"
 ) -> OptimizationResult:
     """단일 Phase 최적화 실행"""
     optimizer = create_optimizer(model)

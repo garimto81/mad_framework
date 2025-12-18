@@ -132,13 +132,13 @@ Follow TDD best practices with Red-Green-Refactor workflow and git integration.
 
 ## Integration with Agents
 
-- **test-automator**: Generate test suggestions
+- **test-engineer**: Generate test suggestions
 - **debugger**: Fix failing tests
 - **code-reviewer**: Review refactoring
 
 ## Related
 
 - `/check` - Quality checks
-- `/optimize` - Performance
+- `/check --perf` - Performance
 - `scripts/validate-phase-1.sh` - 1:1 test pairing
 - Phase 2 validation

@@ -297,5 +297,5 @@ docs/
 ## Related
 
 - `/commit` - 커밋 생성
-- `/changelog` - CHANGELOG 업데이트
+- `/session changelog` - CHANGELOG 업데이트
 - `/todo` - PRD에서 Task 생성

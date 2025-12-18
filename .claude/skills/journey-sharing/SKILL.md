@@ -2,8 +2,26 @@
 name: journey-sharing
 description: >
   세션 여정 자동 기록 및 PR 연동. 작업 흐름, 의사결정, 컨텍스트 사용량 추적.
-  트리거: "여정 저장", "journey", "세션 기록", "PR 여정"
-version: 1.0.0
+version: 2.0.0
+
+triggers:
+  keywords:
+    - "여정 저장"
+    - "journey"
+    - "세션 기록"
+    - "PR 여정"
+  file_patterns: []
+  context:
+    - "세션 기록 저장"
+    - "PR 여정 첨부"
+
+capabilities:
+  - record_milestone
+  - export_journey
+  - track_context_usage
+
+model_preference: haiku
+
 phase: [4]
 auto_trigger: true
 dependencies: []

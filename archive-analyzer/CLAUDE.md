@@ -22,8 +22,9 @@ Archive Analyzer는 OTT 솔루션을 위한 미디어 아카이브 분석 도구
 ```powershell
 # 의존성 설치 (용도별)
 pip install -e ".[dev,media]"        # 개발 + 미디어 분석
-pip install -e ".[dev,media,search]" # 전체 (MeiliSearch 포함)
-pip install -e ".[all]"              # 전체 (auth, admin 포함)
+pip install -e ".[dev,media,search]" # API + 검색 (MeiliSearch)
+pip install -e ".[dev,web,tray]"     # 웹 대시보드 + 트레이 앱
+pip install -e ".[all]"              # 전체 (auth, admin, web, tray 포함)
 
 # 테스트 실행
 pytest tests/ -v
@@ -56,6 +57,7 @@ python -m archive_analyzer.cli       # 모듈로 직접 실행
 src/archive_analyzer/
 ├── config.py             # SMBConfig, AnalyzerConfig (환경변수/JSON 로드)
 ├── smb_connector.py      # SMB 2/3 네트워크 연결 (smbprotocol 기반)
+├── ftp_connector.py      # FTP 연결 (GCloud 환경용 - SMB 대체)
 ├── file_classifier.py    # 파일 유형 분류 (video, audio, subtitle, metadata)
 ├── scanner.py            # 재귀 디렉토리 스캔, 체크포인트 기반 재개
 ├── database.py           # SQLite 저장 (6개 테이블)
@@ -66,34 +68,63 @@ src/archive_analyzer/
 ├── sheets_sync.py        # Google Sheets ↔ SQLite 양방향 동기화
 ├── archive_hands_sync.py # 아카이브 팀 시트 → hands 테이블 동기화
 ├── title_generator.py    # 시청자용 제목 자동 생성 (규칙 기반)
-└── api.py                # FastAPI REST API (검색/동기화)
+├── api.py                # FastAPI REST API (검색/동기화)
+├── nas_auto_sync.py      # NAS 자동 동기화 데몬 (폴링 기반)
+├── tray_app.py           # Windows 시스템 트레이 앱 (pystray)
+├── web/                  # 웹 모니터링 대시보드 (FastAPI + WebSocket)
+│   └── app.py            # 실시간 로그/상태 모니터링
+├── mam/                  # MAM (Media Asset Management) 모듈
+│   ├── asset/            # 자산 관리
+│   ├── tag/              # 태그 시스템
+│   ├── search/           # 검색
+│   ├── workflow/         # 클리핑, 작업 큐
+│   ├── production/       # EDL 내보내기, 컬렉션
+│   └── admin/            # 대시보드, 사용자 관리
+└── utils/                # 경로 정규화 등 유틸리티
 ```
 
 ### 데이터 흐름
 
 ```
-SMBConnector → ArchiveScanner → Database
-                    ↓
-            SMBMediaExtractor (512KB 부분 다운로드 → FFprobe)
-                    ↓
-            ReportGenerator (통계/스트리밍 적합성)
-                    ↓
-    ┌───────────────┼───────────────┐
-    ↓               ↓               ↓
-SearchService   SyncService   SheetsSyncService
-(MeiliSearch)   (pokervod.db)  (Google Sheets)
+┌─────────────────────────────────────────────────────────────┐
+│                      NAS (10.10.100.122)                      │
+│                    /docker/GGPNAs/ARCHIVE/                    │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ SMB/FTP (폴링 스캔)
+                           ▼
+SMBConnector/FTPConnector → ArchiveScanner → Database (archive.db)
+                                 │
+                 ┌───────────────┼───────────────┐
+                 ▼               ▼               ▼
+         MediaExtractor   ReportGenerator   NASAutoSync
+    (512KB 부분 다운로드 →    (통계/OTT 호환)    (30분 주기)
+           FFprobe)                             │
+                                               ▼
+                 ┌───────────────┼───────────────┐
+                 ▼               ▼               ▼
+          SearchService    SyncService    SheetsSyncService
+          (MeiliSearch)    (pokervod.db)   (Google Sheets)
+                                ▲
+                                │
+                 ┌──────────────┼──────────────┐
+                 ▼              ▼              ▼
+            Web Dashboard    Tray App     API Server
+           (FastAPI+WS)     (Windows)    (/docs)
 ```
 
 ### 주요 클래스
 
 | 클래스 | 역할 |
 |--------|------|
-| `SMBConnector` | SMB 연결/재시도/디렉토리 스캔 |
+| `SMBConnector` / `FTPConnector` | 네트워크 연결 (SMB/FTP 공통 인터페이스) |
 | `ArchiveScanner` | 체크포인트 기반 재귀 스캔 |
 | `FFprobeExtractor` / `SMBMediaExtractor` | 메타데이터 추출 |
 | `SearchService` | MeiliSearch 검색 API |
 | `SyncService` | archive.db → pokervod.db 동기화 |
 | `SheetsSyncService` / `ArchiveHandsSync` | Google Sheets 동기화 |
+| `NASAutoSync` | 신규 파일 자동 감지 데몬 (폴링) |
+| `TrayApp` | 시스템 트레이 UI (Start/Stop/Settings) |
+| `WebConfig` / `ServiceState` | 웹 대시보드 상태 관리 |
 
 ## Key Scripts
 
@@ -117,9 +148,12 @@ python scripts/match_by_path.py               # 경로 기반 매칭
 python scripts/migrate_subcatalogs_v2.py      # 서브카탈로그 V2
 python scripts/migrate_integer_pk.py          # 정수 PK 마이그레이션
 python scripts/migrate_json_normalization.py  # JSON 정규화
+python scripts/migrate_v3_schema.py           # V3.0 Video Card 스키마
 
 # 유틸리티
 python scripts/test_smb.py                    # SMB 연결 테스트
+python scripts/test_ftp.py                    # FTP 연결 테스트 (GCloud용)
+python scripts/build_installer.py             # Windows 설치 파일 빌드
 
 # NAS 유지보수 (Issue #57)
 python scripts/fix_nas_scan_issue.py          # NAS 경로 불일치 해결 (dry-run)
@@ -135,7 +169,11 @@ python scripts/verify_db_files.py             # DB 파일 존재 여부 검증
 |----------|------|------|
 | **SMB** | `SMB_SERVER`, `SMB_SHARE`, `SMB_USERNAME`, `SMB_PASSWORD` | NAS 연결 |
 | **SMB** | `ARCHIVE_PATH` | 아카이브 경로 (기본: `GGPNAs/ARCHIVE`) |
+| **FTP** | `FTP_HOST`, `FTP_PORT`, `FTP_USERNAME`, `FTP_PASSWORD` | GCloud 환경용 FTP 연결 |
+| **FTP** | `FTP_BASE_PATH` | FTP 기본 경로 (기본: `/docker/GGPNAs/ARCHIVE`) |
 | **Search** | `MEILISEARCH_URL` | MeiliSearch 서버 (기본: `http://localhost:7700`) |
+| **Web** | `ARCHIVE_DB`, `POKERVOD_DB`, `NAS_MOUNT_PATH` | 웹 대시보드 DB 경로 |
+| **Web** | `SYNC_INTERVAL`, `WEB_PORT` | 동기화 간격(초), 웹 포트 |
 | **Sheets** | `CREDENTIALS_PATH`, `SPREADSHEET_ID` | Google Sheets 동기화 |
 | **OAuth** | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth 인증 |
 | **Admin** | `ADMIN_EMAILS` | 관리자 이메일 목록 |
@@ -218,6 +256,50 @@ python scripts/start_admin.py  # 관리 서버 시작 (IP 자동 감지)
 | `/auth/login` | Google OAuth Login |
 | `/docs` | API Documentation |
 
+### NAS Auto Sync (자동 동기화 데몬)
+
+```powershell
+# 데몬 모드 (30분 간격)
+python -m archive_analyzer.nas_auto_sync
+
+# 간격 지정 (초)
+python -m archive_analyzer.nas_auto_sync --interval 1800
+
+# 1회 실행
+python -m archive_analyzer.nas_auto_sync --once
+
+# Dry-run (DB 변경 없음)
+python -m archive_analyzer.nas_auto_sync --once --dry-run
+```
+
+### Web Dashboard (모니터링)
+
+```powershell
+# 개발 서버
+uvicorn archive_analyzer.web.app:app --host 0.0.0.0 --port 8080 --reload
+
+# Docker
+docker-compose -f docker-compose.web.yml up -d
+```
+
+| 기능 | 설명 |
+|------|------|
+| 실시간 상태 | 동기화 Running/Stopped/Syncing |
+| 로그 스트리밍 | WebSocket 기반 실시간 로그 |
+| 수동 트리거 | Sync Now / Verify 버튼 |
+
+### Tray App (Windows)
+
+```powershell
+# 시스템 트레이 앱 실행
+python -m archive_analyzer.tray_app
+
+# 설치 파일 빌드
+python scripts/build_installer.py
+```
+
+기능: Start/Stop 동기화, Settings 창, Open Dashboard, 상태 알림
+
 ## Streaming Compatibility
 
 OTT 호환 판정 기준 (`ReportGenerator`):
@@ -231,6 +313,11 @@ OTT 호환 판정 기준 (`ReportGenerator`):
 |------|------|
 | `docs/DATABASE_SCHEMA.md` | DB 스키마 및 연동 관계 (**스키마 변경 시 필수 업데이트**) |
 | `docs/archive_structure.md` | 아카이브 폴더 구조 및 태그 스키마 |
+| `docs/PRD_NAS_MONITOR.md` | NAS Auto Sync 모니터링 시스템 PRD |
+| `docs/DEPLOYMENT.md` | Docker/설치 배포 가이드 |
+| `docs/SHEETS_SYNC_GUIDE.md` | Google Sheets 동기화 설정 가이드 |
+| `docs/V3_DESIGN_SCHEMA.md` | V3.0 Video Card 스키마 설계 |
+| `docs/DATA_FLOW.md` | 시스템 간 데이터 흐름도 |
 | `docs/MAM_SOLUTIONS_RESEARCH.md` | 오픈소스 MAM 솔루션 비교 |
 
 ## Roadmap
@@ -242,4 +329,7 @@ OTT 호환 판정 기준 (`ReportGenerator`):
 | Phase 2.5: Admin UI | ✅ | Google OAuth, User Management |
 | Phase 2.6: Google Sheets 동기화 | ✅ | sheets_sync, Docker |
 | Phase 2.7: 멀티 카탈로그 + 추천 | ✅ | N:N 관계, 정수 PK 마이그레이션 |
-| Phase 3: AI 기능 | 🔜 | Whisper, YOLOv8, Gorse 연동 |
+| Phase 2.8: V3.0 Video Card 스키마 | ✅ | series, contents, content_players, content_tags |
+| Phase 2.9: NAS Auto Sync | ✅ | nas_auto_sync, web dashboard, tray app |
+| Phase 3: MAM 시스템 | 🔄 | mam/ 모듈 (asset, tag, workflow, production) |
+| Phase 4: AI 기능 | 🔜 | Whisper, YOLOv8, Gorse 연동 |

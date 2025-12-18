@@ -19,6 +19,7 @@ from .pattern_detector import Pattern, PatternReport
 @dataclass
 class UpdateProposal:
     """CLAUDE.md 업데이트 제안"""
+
     proposal_id: str
     section: str
     original_content: str
@@ -44,13 +45,14 @@ class UpdateProposal:
             "confidence": self.confidence,
             "source_patterns": self.source_patterns,
             "created_at": self.created_at,
-            "is_high_confidence": self.is_high_confidence
+            "is_high_confidence": self.is_high_confidence,
         }
 
 
 @dataclass
 class UpdateResult:
     """업데이트 결과"""
+
     success: bool
     proposals_applied: int
     backup_path: Optional[str] = None
@@ -84,9 +86,7 @@ class ClaudeMDUpdater:
         self.claude_md_path = Path(path)
 
     def generate_proposal(
-        self,
-        pattern: Pattern,
-        analysis_summary: Optional[str] = None
+        self, pattern: Pattern, analysis_summary: Optional[str] = None
     ) -> Optional[UpdateProposal]:
         """
         패턴에서 업데이트 제안 생성
@@ -114,7 +114,7 @@ class ClaudeMDUpdater:
             proposed_content=proposed_content,
             reason=f"{pattern.description} 패턴이 {pattern.occurrence_count}회 발생",
             confidence=min(0.5 + (pattern.occurrence_count * 0.1), 0.95),
-            source_patterns=[pattern.pattern_id]
+            source_patterns=[pattern.pattern_id],
         )
 
         self._proposals.append(proposal)
@@ -155,8 +155,7 @@ class ClaudeMDUpdater:
         return None
 
     def generate_proposals_from_report(
-        self,
-        report: PatternReport
+        self, report: PatternReport
     ) -> list[UpdateProposal]:
         """
         패턴 리포트에서 제안 일괄 생성
@@ -196,9 +195,7 @@ class ClaudeMDUpdater:
         return "\n".join(lines)
 
     def apply_proposals(
-        self,
-        proposals: Optional[list[UpdateProposal]] = None,
-        backup: bool = True
+        self, proposals: Optional[list[UpdateProposal]] = None, backup: bool = True
     ) -> UpdateResult:
         """
         제안 적용
@@ -214,27 +211,27 @@ class ClaudeMDUpdater:
             return UpdateResult(
                 success=False,
                 proposals_applied=0,
-                error_message="CLAUDE.md 경로가 설정되지 않았습니다"
+                error_message="CLAUDE.md 경로가 설정되지 않았습니다",
             )
 
         if not self.claude_md_path.exists():
             return UpdateResult(
                 success=False,
                 proposals_applied=0,
-                error_message=f"파일을 찾을 수 없습니다: {self.claude_md_path}"
+                error_message=f"파일을 찾을 수 없습니다: {self.claude_md_path}",
             )
 
         proposals = proposals or self._proposals
         if not proposals:
-            return UpdateResult(
-                success=True,
-                proposals_applied=0
-            )
+            return UpdateResult(success=True, proposals_applied=0)
 
         # 백업 생성
         backup_path = None
         if backup:
-            backup_path = str(self.claude_md_path) + f".backup.{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            backup_path = (
+                str(self.claude_md_path)
+                + f".backup.{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            )
             shutil.copy(self.claude_md_path, backup_path)
 
         try:
@@ -250,23 +247,15 @@ class ClaudeMDUpdater:
             self.claude_md_path.write_text(content, encoding="utf-8")
 
             return UpdateResult(
-                success=True,
-                proposals_applied=applied_count,
-                backup_path=backup_path
+                success=True, proposals_applied=applied_count, backup_path=backup_path
             )
 
         except Exception as e:
             return UpdateResult(
-                success=False,
-                proposals_applied=0,
-                error_message=str(e)
+                success=False, proposals_applied=0, error_message=str(e)
             )
 
-    def _apply_single_proposal(
-        self,
-        content: str,
-        proposal: UpdateProposal
-    ) -> str:
+    def _apply_single_proposal(self, content: str, proposal: UpdateProposal) -> str:
         """단일 제안 적용"""
         # 섹션 찾기
         section_pattern = rf"(## {re.escape(proposal.section)}.*?)(?=\n## |\Z)"
@@ -275,8 +264,10 @@ class ClaudeMDUpdater:
         if match:
             section_content = match.group(1)
             # 섹션 끝에 내용 추가
-            new_section = section_content.rstrip() + f"\n\n{proposal.proposed_content}\n"
-            content = content[:match.start()] + new_section + content[match.end():]
+            new_section = (
+                section_content.rstrip() + f"\n\n{proposal.proposed_content}\n"
+            )
+            content = content[: match.start()] + new_section + content[match.end() :]
 
         return content
 
@@ -322,10 +313,7 @@ def create_updater(claude_md_path: str) -> ClaudeMDUpdater:
     return ClaudeMDUpdater(claude_md_path)
 
 
-def propose_update(
-    pattern: Pattern,
-    claude_md_path: str
-) -> Optional[UpdateProposal]:
+def propose_update(pattern: Pattern, claude_md_path: str) -> Optional[UpdateProposal]:
     """단일 패턴에서 제안 생성"""
     updater = create_updater(claude_md_path)
     return updater.generate_proposal(pattern)

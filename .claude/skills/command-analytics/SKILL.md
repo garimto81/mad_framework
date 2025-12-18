@@ -3,8 +3,27 @@ name: command-analytics
 description: >
   커맨드, 스킬, 에이전트 사용 빈도 측정 및 리포트 생성.
   미사용 항목 식별, 최적화 제안 제공.
-  (참고: /usage는 Claude Code 내장 토큰 사용량 명령어)
-version: 1.0.0
+version: 2.0.0
+
+triggers:
+  keywords:
+    - "analytics"
+    - "사용량"
+    - "미사용"
+    - "통계"
+  file_patterns:
+    - ".claude/analytics/**/*"
+  context:
+    - "커맨드 사용 빈도 분석"
+    - "미사용 항목 정리"
+
+capabilities:
+  - generate_report
+  - identify_unused
+  - usage_trend
+
+model_preference: haiku
+
 auto_trigger: false
 ---
 

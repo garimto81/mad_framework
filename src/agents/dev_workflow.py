@@ -25,21 +25,24 @@ from .config import AGENT_MODEL_TIERS
 # State Definitions
 # ============================================================================
 
+
 class DevWorkflowState(TypedDict):
     """개발 워크플로우 상태"""
-    task: str                                          # 개발 태스크
-    context: dict                                      # 코드베이스 컨텍스트
-    architecture: str                                  # 아키텍처 설계
-    implementation: str                                # 구현 코드
-    tests: str                                         # 테스트 코드
-    documentation: str                                 # 문서
-    results: Annotated[list[dict], operator.add]       # 에이전트 결과 (Reducer)
-    final_output: str                                  # 최종 통합 결과
-    metadata: dict                                     # 메타데이터
+
+    task: str  # 개발 태스크
+    context: dict  # 코드베이스 컨텍스트
+    architecture: str  # 아키텍처 설계
+    implementation: str  # 구현 코드
+    tests: str  # 테스트 코드
+    documentation: str  # 문서
+    results: Annotated[list[dict], operator.add]  # 에이전트 결과 (Reducer)
+    final_output: str  # 최종 통합 결과
+    metadata: dict  # 메타데이터
 
 
 class DevAgentResult(TypedDict):
     """에이전트 실행 결과"""
+
     agent_type: str
     output: str
     files_created: list[str]
@@ -145,6 +148,7 @@ DOCS_PROMPT = """당신은 문서화 에이전트입니다.
 # Model Initialization
 # ============================================================================
 
+
 def get_model(tier: str = "coder") -> ChatAnthropic:
     """티어별 모델 인스턴스 생성"""
     model_name = AGENT_MODEL_TIERS.get(tier, AGENT_MODEL_TIERS["default"])
@@ -154,6 +158,7 @@ def get_model(tier: str = "coder") -> ChatAnthropic:
 # ============================================================================
 # Node Functions
 # ============================================================================
+
 
 def supervisor_node(state: DevWorkflowState) -> dict:
     """
@@ -178,14 +183,14 @@ def supervisor_node(state: DevWorkflowState) -> dict:
 
     messages = [
         SystemMessage(content=system_prompt),
-        HumanMessage(content=f"다음 개발 태스크를 분석하세요:\n\n{state['task']}")
+        HumanMessage(content=f"다음 개발 태스크를 분석하세요:\n\n{state['task']}"),
     ]
 
     response = model.invoke(messages)
 
     # 컨텍스트 파싱
     try:
-        json_match = re.search(r'```json\s*(.*?)\s*```', response.content, re.DOTALL)
+        json_match = re.search(r"```json\s*(.*?)\s*```", response.content, re.DOTALL)
         if json_match:
             context = json.loads(json_match.group(1))
         else:
@@ -205,13 +210,15 @@ def architect_node(state: DevWorkflowState) -> dict:
 
     messages = [
         SystemMessage(content=ARCHITECT_PROMPT),
-        HumanMessage(content=f"""
+        HumanMessage(
+            content=f"""
 태스크: {state['task']}
 
 컨텍스트: {json.dumps(context, ensure_ascii=False, indent=2)}
 
 이 태스크에 대한 아키텍처를 설계하세요.
-""")
+"""
+        ),
     ]
 
     try:
@@ -221,19 +228,16 @@ def architect_node(state: DevWorkflowState) -> dict:
             "output": response.content,
             "files_created": [],
             "success": True,
-            "error": None
+            "error": None,
         }
-        return {
-            "architecture": response.content,
-            "results": [result]
-        }
+        return {"architecture": response.content, "results": [result]}
     except Exception as e:
         result: DevAgentResult = {
             "agent_type": "architect",
             "output": "",
             "files_created": [],
             "success": False,
-            "error": str(e)
+            "error": str(e),
         }
         return {"results": [result]}
 
@@ -247,13 +251,15 @@ def coder_node(state: DevWorkflowState) -> dict:
 
     messages = [
         SystemMessage(content=CODER_PROMPT),
-        HumanMessage(content=f"""
+        HumanMessage(
+            content=f"""
 태스크: {state['task']}
 
 컨텍스트: {json.dumps(context, ensure_ascii=False, indent=2)}
 
 이 태스크를 구현하세요.
-""")
+"""
+        ),
     ]
 
     try:
@@ -263,19 +269,16 @@ def coder_node(state: DevWorkflowState) -> dict:
             "output": response.content,
             "files_created": [],
             "success": True,
-            "error": None
+            "error": None,
         }
-        return {
-            "implementation": response.content,
-            "results": [result]
-        }
+        return {"implementation": response.content, "results": [result]}
     except Exception as e:
         result: DevAgentResult = {
             "agent_type": "coder",
             "output": "",
             "files_created": [],
             "success": False,
-            "error": str(e)
+            "error": str(e),
         }
         return {"results": [result]}
 
@@ -289,13 +292,15 @@ def tester_node(state: DevWorkflowState) -> dict:
 
     messages = [
         SystemMessage(content=TESTER_PROMPT),
-        HumanMessage(content=f"""
+        HumanMessage(
+            content=f"""
 태스크: {state['task']}
 
 컨텍스트: {json.dumps(context, ensure_ascii=False, indent=2)}
 
 이 태스크에 대한 테스트를 작성하세요.
-""")
+"""
+        ),
     ]
 
     try:
@@ -305,19 +310,16 @@ def tester_node(state: DevWorkflowState) -> dict:
             "output": response.content,
             "files_created": [],
             "success": True,
-            "error": None
+            "error": None,
         }
-        return {
-            "tests": response.content,
-            "results": [result]
-        }
+        return {"tests": response.content, "results": [result]}
     except Exception as e:
         result: DevAgentResult = {
             "agent_type": "tester",
             "output": "",
             "files_created": [],
             "success": False,
-            "error": str(e)
+            "error": str(e),
         }
         return {"results": [result]}
 
@@ -331,13 +333,15 @@ def docs_node(state: DevWorkflowState) -> dict:
 
     messages = [
         SystemMessage(content=DOCS_PROMPT),
-        HumanMessage(content=f"""
+        HumanMessage(
+            content=f"""
 태스크: {state['task']}
 
 컨텍스트: {json.dumps(context, ensure_ascii=False, indent=2)}
 
 이 태스크에 대한 문서를 작성하세요.
-""")
+"""
+        ),
     ]
 
     try:
@@ -347,19 +351,16 @@ def docs_node(state: DevWorkflowState) -> dict:
             "output": response.content,
             "files_created": [],
             "success": True,
-            "error": None
+            "error": None,
         }
-        return {
-            "documentation": response.content,
-            "results": [result]
-        }
+        return {"documentation": response.content, "results": [result]}
     except Exception as e:
         result: DevAgentResult = {
             "agent_type": "docs",
             "output": "",
             "files_created": [],
             "success": False,
-            "error": str(e)
+            "error": str(e),
         }
         return {"results": [result]}
 
@@ -390,7 +391,8 @@ def integrator_node(state: DevWorkflowState) -> dict:
 
     messages = [
         SystemMessage(content=system_prompt),
-        HumanMessage(content=f"""
+        HumanMessage(
+            content=f"""
 원본 태스크: {state['task']}
 
 아키텍처:
@@ -406,7 +408,8 @@ def integrator_node(state: DevWorkflowState) -> dict:
 {state.get('documentation', 'N/A')}
 
 위 결과를 통합하고 최종 보고서를 작성하세요.
-""")
+"""
+        ),
     ]
 
     response = model.invoke(messages)
@@ -416,6 +419,7 @@ def integrator_node(state: DevWorkflowState) -> dict:
 # ============================================================================
 # Graph Builder
 # ============================================================================
+
 
 def build_dev_workflow() -> StateGraph:
     """
@@ -454,6 +458,7 @@ def build_dev_workflow() -> StateGraph:
 # Execution Functions
 # ============================================================================
 
+
 def run_dev_workflow(task: str, context: dict = None) -> dict:
     """
     개발 워크플로우 실행
@@ -476,7 +481,7 @@ def run_dev_workflow(task: str, context: dict = None) -> dict:
         "documentation": "",
         "results": [],
         "final_output": "",
-        "metadata": {}
+        "metadata": {},
     }
 
     result = workflow.invoke(initial_state)
@@ -505,7 +510,7 @@ async def run_dev_workflow_async(task: str, context: dict = None) -> dict:
         "documentation": "",
         "results": [],
         "final_output": "",
-        "metadata": {}
+        "metadata": {},
     }
 
     result = await workflow.ainvoke(initial_state)

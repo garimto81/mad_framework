@@ -25,22 +25,25 @@ from .config import AGENT_MODEL_TIERS
 # State Definitions
 # ============================================================================
 
+
 class TestWorkflowState(TypedDict):
     """테스트 워크플로우 상태"""
-    target: str                                        # 테스트 대상
-    scope: str                                         # 테스트 범위 (전체/모듈/파일)
-    test_plan: dict                                    # 테스트 계획
-    unit_results: dict                                 # 단위 테스트 결과
-    integration_results: dict                          # 통합 테스트 결과
-    e2e_results: dict                                  # E2E 테스트 결과
-    security_results: dict                             # 보안 테스트 결과
-    results: Annotated[list[dict], operator.add]       # 에이전트 결과 (Reducer)
-    final_report: str                                  # 최종 리포트
-    metadata: dict                                     # 메타데이터
+
+    target: str  # 테스트 대상
+    scope: str  # 테스트 범위 (전체/모듈/파일)
+    test_plan: dict  # 테스트 계획
+    unit_results: dict  # 단위 테스트 결과
+    integration_results: dict  # 통합 테스트 결과
+    e2e_results: dict  # E2E 테스트 결과
+    security_results: dict  # 보안 테스트 결과
+    results: Annotated[list[dict], operator.add]  # 에이전트 결과 (Reducer)
+    final_report: str  # 최종 리포트
+    metadata: dict  # 메타데이터
 
 
 class TestResult(TypedDict):
     """테스트 실행 결과"""
+
     tester_type: str
     total: int
     passed: int
@@ -214,6 +217,7 @@ SECURITY_TESTER_PROMPT = """당신은 보안 테스트 전문가입니다.
 # Model Initialization
 # ============================================================================
 
+
 def get_model(tier: str = "reviewer") -> ChatAnthropic:
     """티어별 모델 인스턴스 생성"""
     model_name = AGENT_MODEL_TIERS.get(tier, AGENT_MODEL_TIERS["default"])
@@ -223,6 +227,7 @@ def get_model(tier: str = "reviewer") -> ChatAnthropic:
 # ============================================================================
 # Node Functions
 # ============================================================================
+
 
 def supervisor_node(state: TestWorkflowState) -> dict:
     """
@@ -248,18 +253,20 @@ def supervisor_node(state: TestWorkflowState) -> dict:
 
     messages = [
         SystemMessage(content=system_prompt),
-        HumanMessage(content=f"""
+        HumanMessage(
+            content=f"""
 테스트 대상: {state['target']}
 테스트 범위: {state.get('scope', '전체')}
 
 테스트 계획을 수립하세요.
-""")
+"""
+        ),
     ]
 
     response = model.invoke(messages)
 
     try:
-        json_match = re.search(r'```json\s*(.*?)\s*```', response.content, re.DOTALL)
+        json_match = re.search(r"```json\s*(.*?)\s*```", response.content, re.DOTALL)
         if json_match:
             test_plan = json.loads(json_match.group(1))
         else:
@@ -279,12 +286,14 @@ def unit_tester_node(state: TestWorkflowState) -> dict:
 
     messages = [
         SystemMessage(content=UNIT_TESTER_PROMPT),
-        HumanMessage(content=f"""
+        HumanMessage(
+            content=f"""
 테스트 대상: {state['target']}
 단위 테스트 범위: {test_plan.get('unit_scope', '전체 함수/클래스')}
 
 단위 테스트를 분석하고 결과를 보고하세요.
-""")
+"""
+        ),
     ]
 
     try:
@@ -299,12 +308,9 @@ def unit_tester_node(state: TestWorkflowState) -> dict:
             "issues": [],
             "output": response.content,
             "success": True,
-            "error": None
+            "error": None,
         }
-        return {
-            "unit_results": {"output": response.content},
-            "results": [result]
-        }
+        return {"unit_results": {"output": response.content}, "results": [result]}
     except Exception as e:
         result: TestResult = {
             "tester_type": "unit",
@@ -316,7 +322,7 @@ def unit_tester_node(state: TestWorkflowState) -> dict:
             "issues": [],
             "output": "",
             "success": False,
-            "error": str(e)
+            "error": str(e),
         }
         return {"results": [result]}
 
@@ -330,12 +336,14 @@ def integration_tester_node(state: TestWorkflowState) -> dict:
 
     messages = [
         SystemMessage(content=INTEGRATION_TESTER_PROMPT),
-        HumanMessage(content=f"""
+        HumanMessage(
+            content=f"""
 테스트 대상: {state['target']}
 통합 테스트 범위: {test_plan.get('integration_scope', '전체 API')}
 
 통합 테스트를 분석하고 결과를 보고하세요.
-""")
+"""
+        ),
     ]
 
     try:
@@ -350,11 +358,11 @@ def integration_tester_node(state: TestWorkflowState) -> dict:
             "issues": [],
             "output": response.content,
             "success": True,
-            "error": None
+            "error": None,
         }
         return {
             "integration_results": {"output": response.content},
-            "results": [result]
+            "results": [result],
         }
     except Exception as e:
         result: TestResult = {
@@ -367,7 +375,7 @@ def integration_tester_node(state: TestWorkflowState) -> dict:
             "issues": [],
             "output": "",
             "success": False,
-            "error": str(e)
+            "error": str(e),
         }
         return {"results": [result]}
 
@@ -381,12 +389,14 @@ def e2e_tester_node(state: TestWorkflowState) -> dict:
 
     messages = [
         SystemMessage(content=E2E_TESTER_PROMPT),
-        HumanMessage(content=f"""
+        HumanMessage(
+            content=f"""
 테스트 대상: {state['target']}
 E2E 테스트 범위: {test_plan.get('e2e_scope', '주요 사용자 플로우')}
 
 E2E 테스트를 분석하고 결과를 보고하세요.
-""")
+"""
+        ),
     ]
 
     try:
@@ -401,12 +411,9 @@ E2E 테스트를 분석하고 결과를 보고하세요.
             "issues": [],
             "output": response.content,
             "success": True,
-            "error": None
+            "error": None,
         }
-        return {
-            "e2e_results": {"output": response.content},
-            "results": [result]
-        }
+        return {"e2e_results": {"output": response.content}, "results": [result]}
     except Exception as e:
         result: TestResult = {
             "tester_type": "e2e",
@@ -418,7 +425,7 @@ E2E 테스트를 분석하고 결과를 보고하세요.
             "issues": [],
             "output": "",
             "success": False,
-            "error": str(e)
+            "error": str(e),
         }
         return {"results": [result]}
 
@@ -432,12 +439,14 @@ def security_tester_node(state: TestWorkflowState) -> dict:
 
     messages = [
         SystemMessage(content=SECURITY_TESTER_PROMPT),
-        HumanMessage(content=f"""
+        HumanMessage(
+            content=f"""
 테스트 대상: {state['target']}
 보안 테스트 범위: {test_plan.get('security_scope', 'OWASP Top 10')}
 
 보안 테스트를 분석하고 결과를 보고하세요.
-""")
+"""
+        ),
     ]
 
     try:
@@ -452,12 +461,9 @@ def security_tester_node(state: TestWorkflowState) -> dict:
             "issues": [],
             "output": response.content,
             "success": True,
-            "error": None
+            "error": None,
         }
-        return {
-            "security_results": {"output": response.content},
-            "results": [result]
-        }
+        return {"security_results": {"output": response.content}, "results": [result]}
     except Exception as e:
         result: TestResult = {
             "tester_type": "security",
@@ -469,7 +475,7 @@ def security_tester_node(state: TestWorkflowState) -> dict:
             "issues": [],
             "output": "",
             "success": False,
-            "error": str(e)
+            "error": str(e),
         }
         return {"results": [result]}
 
@@ -495,7 +501,8 @@ def reporter_node(state: TestWorkflowState) -> dict:
 
     messages = [
         SystemMessage(content=system_prompt),
-        HumanMessage(content=f"""
+        HumanMessage(
+            content=f"""
 테스트 대상: {state['target']}
 
 단위 테스트:
@@ -511,7 +518,8 @@ E2E 테스트:
 {state.get('security_results', {}).get('output', 'N/A')}
 
 위 결과를 종합하여 최종 테스트 리포트를 작성하세요.
-""")
+"""
+        ),
     ]
 
     response = model.invoke(messages)
@@ -521,6 +529,7 @@ E2E 테스트:
 # ============================================================================
 # Graph Builder
 # ============================================================================
+
 
 def build_test_workflow() -> StateGraph:
     """
@@ -543,7 +552,12 @@ def build_test_workflow() -> StateGraph:
     builder.add_edge(START, "supervisor")
 
     # supervisor -> [testers] (Fan-out: 병렬 실행)
-    parallel_testers = ["unit_tester", "integration_tester", "e2e_tester", "security_tester"]
+    parallel_testers = [
+        "unit_tester",
+        "integration_tester",
+        "e2e_tester",
+        "security_tester",
+    ]
     builder.add_edge("supervisor", parallel_testers)
 
     # [testers] -> reporter (Fan-in: 결과 집계)
@@ -558,6 +572,7 @@ def build_test_workflow() -> StateGraph:
 # ============================================================================
 # Execution Functions
 # ============================================================================
+
 
 def run_test_workflow(target: str, scope: str = "전체") -> dict:
     """
@@ -582,7 +597,7 @@ def run_test_workflow(target: str, scope: str = "전체") -> dict:
         "security_results": {},
         "results": [],
         "final_report": "",
-        "metadata": {}
+        "metadata": {},
     }
 
     result = workflow.invoke(initial_state)
@@ -612,7 +627,7 @@ async def run_test_workflow_async(target: str, scope: str = "전체") -> dict:
         "security_results": {},
         "results": [],
         "final_report": "",
-        "metadata": {}
+        "metadata": {},
     }
 
     result = await workflow.ainvoke(initial_state)
