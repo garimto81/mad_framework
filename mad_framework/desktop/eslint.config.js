@@ -12,5 +12,12 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
     },
+  },
+  // Electron 파일에서 require() 허용 (동적 임포트 필요)
+  {
+    files: ['electron/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
   }
 );
