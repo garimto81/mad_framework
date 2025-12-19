@@ -4,39 +4,12 @@
  * 브라우저 자동화를 위한 기본 어댑터 클래스
  * Issue #17: AdapterResult 타입으로 표준화
  * Issue #18: 셀렉터 Fallback 시스템
+ * Issue #27: 파일 분할 리팩토링
  */
 
 import type { LLMProvider, AdapterResult, AdapterErrorCode } from '../../../shared/types';
-
-interface WebContents {
-  executeJavaScript: (script: string) => Promise<any>;
-  loadURL: (url: string) => void;
-  getURL: () => string;
-  on: (event: string, callback: (...args: any[]) => void) => void;
-}
-
-// Issue #18: SelectorSet for fallback support
-interface SelectorSet {
-  primary: string;
-  fallbacks: string[];
-}
-
-interface ProviderSelectors {
-  inputTextarea: SelectorSet;
-  sendButton: SelectorSet;
-  responseContainer: SelectorSet;
-  typingIndicator: SelectorSet;
-  loginCheck: SelectorSet;
-}
-
-// Legacy interface for backward compatibility
-interface AdapterSelectors {
-  inputTextarea: string;
-  sendButton: string;
-  responseContainer: string;
-  typingIndicator: string;
-  loginCheck: string;
-}
+import type { WebContents, SelectorSet, ProviderSelectors, AdapterSelectors } from './types';
+import { getBaseUrl, getDefaultSelectors, getSelectorSets } from './selector-config';
 
 export class BaseLLMAdapter {
   readonly provider: LLMProvider;
@@ -49,10 +22,10 @@ export class BaseLLMAdapter {
     this.provider = provider;
     this.webContents = webContents;
 
-    // Default selectors - should be overridden by subclasses
-    this.baseUrl = this.getBaseUrl(provider);
-    this.selectors = this.getDefaultSelectors(provider);
-    this.selectorSets = this.getSelectorSets(provider);
+    // Initialize from config modules
+    this.baseUrl = getBaseUrl(provider);
+    this.selectors = getDefaultSelectors(provider);
+    this.selectorSets = getSelectorSets(provider);
   }
 
   // Issue #18: Find element with fallback support
@@ -119,177 +92,6 @@ export class BaseLLMAdapter {
     }
   }
 
-  private getBaseUrl(provider: LLMProvider): string {
-    const urls: Record<LLMProvider, string> = {
-      chatgpt: 'https://chat.openai.com',
-      claude: 'https://claude.ai',
-      gemini: 'https://gemini.google.com',
-    };
-    return urls[provider];
-  }
-
-  private getDefaultSelectors(provider: LLMProvider): AdapterSelectors {
-    const selectorMap: Record<LLMProvider, AdapterSelectors> = {
-      chatgpt: {
-        inputTextarea: '#prompt-textarea',
-        sendButton: '[data-testid="send-button"]',
-        responseContainer: '[data-message-author-role="assistant"]',
-        typingIndicator: '.result-streaming',
-        loginCheck: '[data-testid="profile-button"]',
-      },
-      claude: {
-        inputTextarea: '[contenteditable="true"]',
-        sendButton: '[aria-label="Send message"]',
-        responseContainer: '[data-is-streaming="false"]',
-        typingIndicator: '[data-is-streaming="true"]',
-        loginCheck: '[data-testid="user-menu"]',
-      },
-      gemini: {
-        inputTextarea: '.ql-editor',
-        sendButton: '.send-button',
-        responseContainer: '.response-container',
-        typingIndicator: '.loading-indicator',
-        loginCheck: '[data-user-email]',
-      },
-    };
-    return selectorMap[provider];
-  }
-
-  // Issue #18: Selector fallback definitions
-  private getSelectorSets(provider: LLMProvider): ProviderSelectors {
-    const selectorSetsMap: Record<LLMProvider, ProviderSelectors> = {
-      chatgpt: {
-        inputTextarea: {
-          primary: '#prompt-textarea',
-          fallbacks: [
-            '[contenteditable="true"]',
-            'textarea[placeholder*="Message"]',
-            'div[role="textbox"]',
-          ],
-        },
-        sendButton: {
-          primary: '[data-testid="send-button"]',
-          fallbacks: [
-            'button[data-testid="send-button"]',
-            'button[aria-label="Send prompt"]',
-            'button[aria-label*="Send"]',
-            'form button:not([disabled])',
-          ],
-        },
-        responseContainer: {
-          primary: '[data-message-author-role="assistant"]',
-          fallbacks: [
-            '[data-message-author-role="assistant"] .markdown',
-            '.agent-turn .markdown',
-            '.prose',
-            'article[data-testid*="conversation"] div.markdown',
-          ],
-        },
-        typingIndicator: {
-          primary: '.result-streaming',
-          fallbacks: [
-            '.agent-turn',
-            '[data-message-author-role="assistant"]:empty',
-            '[data-testid*="streaming"]',
-          ],
-        },
-        loginCheck: {
-          primary: '[data-testid="profile-button"]',
-          fallbacks: [
-            'button[aria-label*="Account"]',
-            'img[alt*="User"]',
-            '#prompt-textarea',
-          ],
-        },
-      },
-      claude: {
-        inputTextarea: {
-          primary: '[contenteditable="true"]',
-          fallbacks: [
-            'div[contenteditable="true"]',
-            'fieldset[dir="auto"] [contenteditable]',
-            '[data-placeholder]',
-          ],
-        },
-        sendButton: {
-          primary: '[aria-label="Send message"]',
-          fallbacks: [
-            'button[aria-label*="Send"]',
-            '[data-testid="send-button"]',
-            'form button:not([disabled])',
-          ],
-        },
-        responseContainer: {
-          primary: '[data-is-streaming="false"]',
-          fallbacks: [
-            '[data-testid="assistant-message"]',
-            '.prose',
-            '[role="article"]',
-          ],
-        },
-        typingIndicator: {
-          primary: '[data-is-streaming="true"]',
-          fallbacks: [
-            '.animate-pulse',
-            '[data-testid*="loading"]',
-          ],
-        },
-        loginCheck: {
-          primary: '[data-testid="user-menu"]',
-          fallbacks: [
-            'button[aria-label*="account"]',
-            'button[aria-label*="Account"]',
-            '[data-testid="menu-trigger"]',
-            '[contenteditable="true"]',
-          ],
-        },
-      },
-      gemini: {
-        inputTextarea: {
-          primary: '.ql-editor',
-          fallbacks: [
-            'rich-textarea',
-            '[contenteditable="true"]',
-            'textarea[aria-label*="prompt"]',
-          ],
-        },
-        sendButton: {
-          primary: '.send-button',
-          fallbacks: [
-            'button[aria-label*="Send"]',
-            '[data-testid="send-button"]',
-            'button[mat-icon-button]',
-          ],
-        },
-        responseContainer: {
-          primary: '.response-container',
-          fallbacks: [
-            '.model-response',
-            '[data-content-type="response"]',
-            '.message-content',
-          ],
-        },
-        typingIndicator: {
-          primary: '.loading-indicator',
-          fallbacks: [
-            '.thinking-indicator',
-            '[aria-busy="true"]',
-            '.spinner',
-          ],
-        },
-        loginCheck: {
-          primary: '[data-user-email]',
-          fallbacks: [
-            'img[data-iml]',
-            '[aria-label*="Google Account"]',
-            '.ql-editor',
-          ],
-        },
-      },
-    };
-    return selectorSetsMap[provider];
-  }
-
   // --- AdapterResult-based methods (Issue #17) with fallback (Issue #18) ---
 
   async checkLogin(): Promise<AdapterResult<boolean>> {
@@ -327,6 +129,8 @@ export class BaseLLMAdapter {
     if (!selector) {
       return this.error('SELECTOR_NOT_FOUND', `Failed to input prompt for ${this.provider}: no input found`);
     }
+
+    console.log(`[${this.provider}] enterPrompt called, length: ${prompt.length}`);
 
     const escapedPrompt = JSON.stringify(prompt);
     const script = `
@@ -610,3 +414,6 @@ export class BaseLLMAdapter {
     return false;
   }
 }
+
+// Re-export types for convenience
+export type { WebContents, SelectorSet, ProviderSelectors, AdapterSelectors } from './types';
