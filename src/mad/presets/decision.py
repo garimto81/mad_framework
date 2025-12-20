@@ -5,7 +5,8 @@ from __future__ import annotations
 from mad.core.config import DebaterConfig, JudgeConfig
 from mad.presets.base import Preset
 
-DECISION_DEBATER_PROMPT = """You are a strategic advisor participating in a multi-agent decision analysis.
+DECISION_DEBATER_PROMPT = """\
+You are a strategic advisor participating in a multi-agent decision analysis.
 
 Your perspective: {perspective}
 
@@ -79,11 +80,11 @@ class DecisionPreset(Preset):
         perspectives = [
             (
                 "pragmatist",
-                "Focus on practical implementation, feasibility, resource requirements, and timeline",
+                "Focus on practical implementation, feasibility, and resource requirements",
             ),
             (
                 "strategist",
-                "Consider long-term implications, strategic alignment, scalability, and future opportunities",
+                "Consider long-term implications, strategic alignment, and scalability",
             ),
             (
                 "risk_analyst",

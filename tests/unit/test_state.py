@@ -1,10 +1,7 @@
 """Tests for MAD Framework state management."""
 
-import pytest
 
 from mad.core.state import (
-    DebateMessage,
-    DebateState,
     create_initial_state,
     create_message,
 )

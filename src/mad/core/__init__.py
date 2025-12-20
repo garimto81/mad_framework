@@ -1,7 +1,7 @@
 """Core module for MAD Framework."""
 
-from mad.core.config import MADConfig, DebateConfig
-from mad.core.state import DebateState, DebateMessage
+from mad.core.config import DebateConfig, MADConfig
+from mad.core.state import DebateMessage, DebateState
 
 __all__ = [
     "MADConfig",

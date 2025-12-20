@@ -1,6 +1,5 @@
 """Tests for MAD Framework presets."""
 
-import pytest
 
 from mad.presets import CodeReviewPreset, DecisionPreset, QAAccuracyPreset
 

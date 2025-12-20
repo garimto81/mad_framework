@@ -5,7 +5,8 @@ from __future__ import annotations
 from mad.core.config import DebaterConfig, JudgeConfig
 from mad.presets.base import Preset
 
-CODE_REVIEW_DEBATER_PROMPT = """You are an expert code reviewer participating in a multi-agent code review.
+CODE_REVIEW_DEBATER_PROMPT = """\
+You are an expert code reviewer participating in a multi-agent code review.
 
 Your role is to analyze code from the perspective of {perspective}.
 
@@ -19,7 +20,8 @@ When reviewing code:
 Be constructive and specific. Avoid vague criticisms.
 Support your points with reasoning and best practices."""
 
-CODE_REVIEW_JUDGE_PROMPT = """You are a senior code reviewer synthesizing feedback from multiple reviewers.
+CODE_REVIEW_JUDGE_PROMPT = """\
+You are a senior code reviewer synthesizing feedback from multiple reviewers.
 
 Your responsibilities:
 1. Consolidate duplicate issues from different reviewers

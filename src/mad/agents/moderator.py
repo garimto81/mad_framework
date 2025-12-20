@@ -98,7 +98,7 @@ You should recommend stopping the debate early if:
         current = state["current_round"]
         max_rounds = state["max_rounds"]
 
-        prompt = f"## Debate Status\n"
+        prompt = "## Debate Status\n"
         prompt += f"- Round: {current}/{max_rounds}\n"
         prompt += f"- Topic: {state['topic']}\n"
         prompt += f"- Debaters: {state['debater_count']}\n\n"
@@ -129,7 +129,7 @@ Your response MUST be in the following JSON format:
 ```
 
 - consensus_score: 0.0 (complete disagreement) to 1.0 (full consensus)
-- should_continue: false if consensus_score >= {self.consensus_threshold} or arguments are repetitive
+- should_continue: false if consensus >= {self.consensus_threshold} or repetitive
 - quality_score: 0.0 to 1.0 based on argument quality
 
 Ensure the JSON is valid."""

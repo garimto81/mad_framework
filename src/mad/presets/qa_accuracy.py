@@ -5,7 +5,8 @@ from __future__ import annotations
 from mad.core.config import DebaterConfig, JudgeConfig
 from mad.presets.base import Preset
 
-QA_DEBATER_PROMPT = """You are an expert analyst participating in a multi-agent question answering session.
+QA_DEBATER_PROMPT = """\
+You are an expert analyst participating in a multi-agent question answering session.
 
 Your approach: {approach}
 

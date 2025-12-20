@@ -1,6 +1,5 @@
 """Tests for MAD Framework configuration."""
 
-import pytest
 
 from mad.core.config import DebateConfig, DebaterConfig, JudgeConfig, MADConfig
 

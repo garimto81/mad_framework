@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from mad.agents.base import AgentRole, BaseAgent
 from mad.core.state import DebateMessage, DebateState

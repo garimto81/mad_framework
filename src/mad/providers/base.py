@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, AsyncIterator, TypedDict
+from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
     pass
