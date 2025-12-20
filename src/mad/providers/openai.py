@@ -47,9 +47,7 @@ class OpenAIProvider(LLMProvider):
             )
         return self._clients[cache_key]
 
-    def _convert_messages(
-        self, messages: list[dict[str, str]], system: str | None = None
-    ) -> list:
+    def _convert_messages(self, messages: list[dict[str, str]], system: str | None = None) -> list:
         """Convert dict messages to LangChain format."""
         lc_messages = []
 

@@ -1,6 +1,5 @@
 """Tests for MAD Framework state management."""
 
-
 from mad.core.state import (
     create_initial_state,
     create_message,

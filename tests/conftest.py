@@ -23,8 +23,8 @@ def sample_context() -> str:
 @pytest.fixture
 def sample_code() -> str:
     """Sample code for code review tests."""
-    return '''
+    return """
 def process_user(data):
     query = f"SELECT * FROM users WHERE id = {data['id']}"
     return db.execute(query)
-'''
+"""
