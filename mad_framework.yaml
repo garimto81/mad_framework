@@ -1,0 +1,288 @@
+# MAD Framework Progress Tracker
+# ================================
+# 서브 에이전트 작업 기록 및 프로젝트 진행상황 관리
+
+version: "1.0"
+project: "MAD Framework (Multi-Agent Debate)"
+last_updated: "2025-12-19T10:00:00"
+repository: "garimto81/mad_framework"
+
+# ============================================================
+# 전체 진행 상태
+# ============================================================
+status:
+  phase: "development"  # planning | development | testing | release
+  overall_progress: 65
+  current_sprint: "Phase 3 - Core Features"
+
+# ============================================================
+# 컴포넌트별 상태
+# ============================================================
+components:
+  python_core:
+    description: "LangGraph 기반 토론 오케스트레이션 라이브러리"
+    status: "active"
+    progress: 70
+    files:
+      - src/mad/core/orchestrator.py
+      - src/mad/core/graph.py
+      - src/mad/core/state.py
+      - src/mad/agents/*.py
+      - src/mad/providers/*.py
+      - src/mad/presets/*.py
+    last_agent: null
+    last_work: null
+    notes: "LangGraph StateGraph 완성, 3개 프로바이더 지원"
+
+  desktop_app:
+    description: "Electron + React 데스크톱 애플리케이션"
+    status: "active"
+    progress: 60
+    files:
+      - desktop/electron/*.ts
+      - desktop/src/**/*.tsx
+      - desktop/shared/*.ts
+    last_agent: null
+    last_work: null
+    notes: "BrowserView 자동화 완성, UI 컴포넌트 구현 중"
+
+  browser_adapters:
+    description: "ChatGPT, Claude, Gemini 웹 자동화 어댑터"
+    status: "active"
+    progress: 75
+    files:
+      - desktop/electron/browser/adapters/*.ts
+    last_agent: null
+    last_work: null
+    notes: "3개 어댑터 구현 완료, selector fallback 시스템 추가"
+
+  testing:
+    description: "Python + TypeScript 테스트 스위트"
+    status: "active"
+    progress: 55
+    files:
+      - tests/**/*.py
+      - tests/integration/*.py
+      - desktop/src/**/*.test.tsx
+    last_agent: "test-engineer"
+    last_work: "PT-001 Integration tests 작성"
+    notes: "커버리지 55% 달성, 42개 테스트 통과"
+
+  documentation:
+    description: "PRD, CLAUDE.md, 아키텍처 문서"
+    status: "complete"
+    progress: 85
+    files:
+      - CLAUDE.md
+      - tasks/prds/0001-mad-web-dashboard/*.md
+    last_agent: null
+    last_work: null
+    notes: "PRD 5개 파트 완성"
+
+# ============================================================
+# 서브 에이전트 작업 기록
+# ============================================================
+agent_logs:
+  - timestamp: "2025-12-19T10:30:00"
+    agent: "test-engineer"
+    task: "PT-001 Integration tests Python ↔ Desktop"
+    result: "completed"
+    duration: "15m"
+    files_touched:
+      - tests/integration/__init__.py
+      - tests/integration/test_provider_integration.py
+      - tests/integration/test_simple_integration.py
+      - tests/integration/README.md
+    summary: |
+      - 22개 통합 테스트 작성 완료
+      - 전체 테스트: 42개 모두 통과
+      - 커버리지: 55% 달성
+      - TDD 원칙 준수 (Red-Green-Refactor)
+    notes: "Provider, Orchestrator, State 통합 테스트 완성"
+
+  - timestamp: "2025-12-19T00:00:00"
+    agent: "Explore"
+    task: "프로젝트 구조 및 상태 분석"
+    result: "completed"
+    duration: "5m"
+    files_touched: []
+    summary: |
+      - Python Core: 27개 파일, 70% 완성
+      - Desktop App: 31개 파일, 60% 완성
+      - PRD 문서 분석 완료
+    notes: "초기 분석 완료, YAML 관리 시스템 설계"
+
+# ============================================================
+# 대기 중인 작업 (우선순위별)
+# ============================================================
+pending_tasks:
+  high_priority:
+    - id: PT-002
+      title: "Cycle detection 알고리즘 개선"
+      description: "Judge 모델의 순환 감지 정확도 향상"
+      estimated_effort: "medium"
+      assigned_agent: null
+      related_files:
+        - desktop/electron/debate/cycle-detector.ts
+
+  medium_priority:
+    - id: PT-003
+      title: "Response streaming 구현"
+      description: "LLM 응답 스트리밍을 UI에 실시간 표시"
+      estimated_effort: "high"
+      assigned_agent: null
+      related_files:
+        - desktop/electron/browser/adapters/*.ts
+        - desktop/src/components/ResponseViewer.tsx
+
+    - id: PT-004
+      title: "Session persistence 강화"
+      description: "세션 데이터 영구 저장 및 복구"
+      estimated_effort: "medium"
+      assigned_agent: null
+      related_files:
+        - desktop/electron/browser/session-manager.ts
+
+    - id: PT-005
+      title: "Debate result export"
+      description: "토론 결과 JSON/MD 형식 내보내기"
+      estimated_effort: "low"
+      assigned_agent: null
+      related_files:
+        - desktop/electron/debate/
+
+  low_priority:
+    - id: PT-006
+      title: "Dark mode 구현"
+      description: "다크/라이트 테마 전환 기능"
+      estimated_effort: "low"
+      assigned_agent: null
+      related_files:
+        - desktop/src/styles/
+
+    - id: PT-007
+      title: "Performance 최적화"
+      description: "DOM 폴링 주기 및 메모리 사용량 개선"
+      estimated_effort: "medium"
+      assigned_agent: null
+      related_files:
+        - desktop/electron/browser/
+
+# ============================================================
+# 완료된 작업
+# ============================================================
+completed_tasks:
+  - id: PT-001
+    title: "Integration tests Python ↔ Desktop"
+    completed_at: "2025-12-19"
+    agent: "test-engineer"
+    pr: null
+    result: |
+      - 22개 통합 테스트 작성
+      - 커버리지 55% 달성
+      - 42개 테스트 모두 통과
+
+  - id: CT-029
+    title: "base-adapter.ts 분리 및 CLAUDE.md 추가"
+    completed_at: "2025-12-19"
+    agent: null
+    pr: "#29"
+
+  - id: CT-025
+    title: "보안 패키지 업그레이드 (6개 취약점 해결)"
+    completed_at: "2025-12-18"
+    agent: null
+    pr: "#25"
+
+  - id: CT-024
+    title: "ESLint Electron 설정"
+    completed_at: "2025-12-18"
+    agent: null
+    pr: "#24"
+
+  - id: CT-023
+    title: "Selector fallback 시스템 구현"
+    completed_at: "2025-12-17"
+    agent: null
+    pr: "#23"
+
+  - id: CT-022
+    title: "AdapterResult 타입 표준화"
+    completed_at: "2025-12-17"
+    agent: null
+    pr: "#22"
+
+  - id: CT-020
+    title: "Critical error handling 개선"
+    completed_at: "2025-12-16"
+    agent: null
+    pr: "#20"
+
+# ============================================================
+# 이슈 트래킹
+# ============================================================
+issues:
+  open: []
+
+  recently_closed:
+    - number: 29
+      title: "base-adapter.ts 분리"
+      closed_at: "2025-12-19"
+    - number: 25
+      title: "보안 취약점 해결"
+      closed_at: "2025-12-18"
+    - number: 24
+      title: "ESLint 설정"
+      closed_at: "2025-12-18"
+    - number: 23
+      title: "Selector fallback"
+      closed_at: "2025-12-17"
+
+# ============================================================
+# PRD Phase 진행 상황
+# ============================================================
+prd_phases:
+  phase_1_foundation:
+    status: "completed"
+    progress: 100
+    tasks:
+      - "EL-001 ~ EL-006: Electron 설정 완료"
+      - "RE-001 ~ RE-005: React/Renderer 설정 완료"
+      - "ST-001 ~ ST-004: Storage 설정 완료"
+
+  phase_2_browser_automation:
+    status: "completed"
+    progress: 100
+    tasks:
+      - "BV-001 ~ BV-005: BrowserView 시스템 완료"
+      - "AD-001 ~ AD-006: LLM 어댑터 완료"
+      - "LS-001 ~ LS-004: LLM Status UI 완료"
+
+  phase_3_core_features:
+    status: "in_progress"
+    progress: 60
+    tasks:
+      - "DB-001 ~ DB-008: Debate Engine (진행 중)"
+      - "DU-001 ~ DU-006: Debate UI (진행 중)"
+      - "HS-001 ~ HS-005: History & Settings (대기)"
+
+  phase_4_polish:
+    status: "pending"
+    progress: 0
+    tasks:
+      - "PL-001 ~ PL-005: UI/UX Polish"
+      - "EH-001 ~ EH-004: Error Handling"
+      - "PK-001 ~ PK-005: Packaging"
+
+# ============================================================
+# 메타데이터
+# ============================================================
+meta:
+  created_at: "2025-12-19T00:00:00"
+  created_by: "Claude Code"
+  schema_version: "1.0"
+  update_rules:
+    - "서브 에이전트 작업 완료 시 agent_logs에 추가"
+    - "작업 완료 시 pending_tasks → completed_tasks 이동"
+    - "last_updated 타임스탬프 갱신"
+    - "컴포넌트 progress 및 last_agent/last_work 업데이트"

@@ -1,0 +1,49 @@
+# Result: task-opt-002
+id: result-opt-002
+task_id: task-opt-002
+status: completed
+completed_at: 2025-12-19T17:40:00Z
+
+optimization_design:
+  current_tokens: 1855
+  target_tokens: 1200
+  target_reduction: "35%+"
+
+  sections:
+    - name: "Architecture"
+      strategy: "테이블 합치기, 코드 예시 1줄 압축"
+      before_lines: 70
+      after_lines: 35
+
+    - name: "Key Patterns"
+      strategy: "인터페이스 정의만, Usage 예시 제거"
+      before_lines: 34
+      after_lines: 12
+
+    - name: "Commands"
+      strategy: "주석 제거, Testing 통합"
+      before_lines: 18
+      after_lines: 10
+
+    - name: "IPC Events/Preset"
+      strategy: "인라인 압축"
+      before_lines: 20
+      after_lines: 6
+
+  new_structure:
+    - "Project Overview (3줄 유지)"
+    - "Commands (Python/Desktop/Test 통합)"
+    - "Architecture (Python 5줄, Desktop 5줄)"
+    - "Patterns (AdapterResult/Selector/Stream 각 2줄)"
+    - "Config (Constants/Presets/Events 인라인)"
+
+  must_preserve:
+    - "빌드 명령어: uv sync, pytest, npm run"
+    - "핵심 파일: orchestrator.py, debate-controller.ts"
+    - "상수: MAX_ITERATIONS=100, SIMILARITY_THRESHOLD=0.85"
+    - "환경 변수: ANTHROPIC_API_KEY, OPENAI_API_KEY"
+
+  estimated_result:
+    before_lines: 200
+    after_lines: 130
+    reduction: "35%"

@@ -1,0 +1,62 @@
+# Result: Headless 브라우저 솔루션 분석
+task_id: task-002
+agent_id: agent-research-002
+status: completed
+duration_seconds: ~200
+
+result:
+  summary: "Playwright 강력 추천. 멀티 컨텍스트, TypeScript 우선, 마이그레이션 용이"
+
+  data:
+    comparison:
+      - name: Playwright
+        background_exec: "완벽 지원"
+        memory_per_context: "150 MB"
+        session_persist: "storageState JSON"
+        multi_context: "browser.newContext() 완벽"
+        bot_detection: "stealth 플러그인"
+        migration_effort: "쉬움 (1:1 매핑)"
+        recommendation: "1순위 강력 추천"
+
+      - name: Puppeteer
+        background_exec: "완벽 지원"
+        memory_per_context: "140 MB"
+        session_persist: "userDataDir"
+        multi_context: "Incognito 모드 기반"
+        bot_detection: "stealth 플러그인"
+        migration_effort: "쉬움"
+        recommendation: "2순위"
+
+      - name: Selenium
+        background_exec: "지원 (무거움)"
+        memory_per_context: "200 MB"
+        session_persist: "복잡한 설정"
+        multi_context: "여러 WebDriver 필요"
+        bot_detection: "쉽게 탐지됨"
+        migration_effort: "중간 난이도"
+        recommendation: "비추천"
+
+      - name: CDP_Direct
+        background_exec: "완벽 지원"
+        memory_per_context: "120 MB"
+        session_persist: "수동 구현"
+        multi_context: "Target.createTarget"
+        bot_detection: "완벽 제어 가능"
+        migration_effort: "어려움 (전체 재작성)"
+        recommendation: "오버킬"
+
+    migration_example: |
+      // 현재 Electron
+      webContents.executeJavaScript(script)
+
+      // Playwright로 마이그레이션
+      page.evaluate(script)  // 1줄 변경!
+
+    conclusion: |
+      Playwright가 MAD Framework에 최적
+      - 멀티 컨텍스트: 3개 LLM 독립 세션
+      - TypeScript 우선: 타입 안전성
+      - 마이그레이션: webContents → page 1:1 매핑
+      - 리소스 절감: Electron 런타임 제거 (~100MB)
+
+errors: []

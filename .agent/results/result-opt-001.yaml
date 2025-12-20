@@ -1,0 +1,59 @@
+# Result: task-opt-001
+id: result-opt-001
+task_id: task-opt-001
+status: completed
+completed_at: 2025-12-19T17:35:00Z
+
+analysis:
+  current_tokens:
+    mad_framework:
+      lines: 200
+      chars: 7420
+      tokens: 1855
+    parent:
+      lines: 168
+      chars: 6890
+      tokens: 1722
+    total: 3577
+
+  duplications:
+    - section: "Python 테스트 명령"
+      parent_lines: "42-45"
+      project_lines: "14-19"
+      overlap_tokens: 80
+    - section: "테스트 주의사항"
+      description: "같은 경고 문구"
+      overlap_tokens: 20
+
+  compressible:
+    - area: "Architecture 구조 설명"
+      current_lines: 75
+      potential_reduction: "150-200 토큰"
+      strategy: "모듈별 상세 설명 한 줄화"
+    - area: "Key Patterns 코드 예시"
+      current_lines: 36
+      potential_reduction: "80-100 토큰"
+      strategy: "코드 예시 축약, GitHub Issues 링크 참조"
+    - area: "Commands 섹션"
+      current_lines: 18
+      potential_reduction: "50-70 토큰"
+      strategy: "주석 축약"
+
+  removable:
+    - area: "Preset Elements 테이블"
+      reason: "프로젝트 구성에만 필요, 별도 문서로 분리 가능"
+      tokens: 40
+    - area: "IPC Events 상세"
+      reason: "코드에서 확인 가능, 별도 문서화 권장"
+      tokens: 60
+
+  must_keep:
+    - "Commands - Python/Desktop (빌드/테스트 명령)"
+    - "Architecture 핵심 모듈 목록 (파일 네비게이션)"
+    - "Environment Variables"
+    - "Key Constants (성능 튜닝/버그 추적)"
+
+  optimization_potential:
+    quick_wins: 210
+    medium_term: 200
+    total_reduction: "410 토큰 (11.4%)"

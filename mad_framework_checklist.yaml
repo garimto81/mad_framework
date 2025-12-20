@@ -1,0 +1,233 @@
+# MAD Framework Checklist
+# ========================
+# 서브 에이전트 작업 체크리스트 및 결과 기록
+# 모든 작업은 서브 에이전트가 처리하고 결과를 여기에 기록
+
+version: "1.0"
+last_updated: "2025-12-19T13:30:00"
+managed_by: "Claude Code (Orchestrator)"
+
+# ============================================================
+# 워크플로우 규칙
+# ============================================================
+workflow:
+  description: |
+    1. 사용자 요청 수신
+    2. checklist.yaml 확인
+    3. 적절한 서브 에이전트 할당
+    4. 서브 에이전트가 작업 수행
+    5. 작업 결과를 checklist.yaml에 기록
+    6. Orchestrator가 yaml 확인 및 관리
+
+  agents:
+    - name: "Explore"
+      role: "코드베이스 분석, 구조 파악"
+      triggers: ["분석", "조사", "파악", "탐색"]
+
+    - name: "Plan"
+      role: "구현 전략 설계"
+      triggers: ["설계", "계획", "전략"]
+
+    - name: "python-dev"
+      role: "Python 코어 개발"
+      triggers: ["python", "orchestrator", "provider", "agent"]
+
+    - name: "typescript-dev"
+      role: "TypeScript/Electron 개발"
+      triggers: ["typescript", "electron", "react", "desktop"]
+
+    - name: "test-engineer"
+      role: "테스트 작성 및 실행"
+      triggers: ["test", "테스트", "coverage", "TDD"]
+
+    - name: "code-reviewer"
+      role: "코드 리뷰"
+      triggers: ["review", "리뷰", "검토"]
+
+    - name: "debugger"
+      role: "버그 분석 및 수정"
+      triggers: ["bug", "error", "debug", "오류"]
+
+# ============================================================
+# 현재 진행 중인 작업
+# ============================================================
+in_progress: []
+
+# ============================================================
+# 대기 중인 작업 체크리스트
+# ============================================================
+checklist:
+  high_priority: []
+
+  medium_priority:
+    - id: CL-003
+      title: "Session persistence 강화"
+      description: "세션 데이터 영구 저장 및 복구"
+      status: "pending"
+      assigned_agent: null
+      estimated_effort: "medium"
+      files:
+        - desktop/electron/browser/session-manager.ts
+      acceptance_criteria:
+        - "앱 재시작 후 로그인 유지"
+        - "쿠키/토큰 암호화 저장"
+
+    - id: CL-004
+      title: "Debate result export"
+      description: "토론 결과 JSON/MD 형식 내보내기"
+      status: "pending"
+      assigned_agent: null
+      estimated_effort: "low"
+      files:
+        - desktop/electron/debate/
+      acceptance_criteria:
+        - "JSON 형식 내보내기"
+        - "Markdown 형식 내보내기"
+        - "파일 저장 다이얼로그"
+
+  low_priority:
+    - id: CL-005
+      title: "Dark mode 구현"
+      description: "다크/라이트 테마 전환 기능"
+      status: "pending"
+      assigned_agent: null
+      estimated_effort: "low"
+      files:
+        - desktop/src/styles/
+      acceptance_criteria:
+        - "시스템 테마 자동 감지"
+        - "수동 전환 토글"
+        - "설정 영구 저장"
+
+    - id: CL-006
+      title: "Performance 최적화"
+      description: "DOM 폴링 주기 및 메모리 사용량 개선"
+      status: "pending"
+      assigned_agent: null
+      estimated_effort: "medium"
+      files:
+        - desktop/electron/browser/
+      acceptance_criteria:
+        - "폴링 주기 동적 조절"
+        - "메모리 누수 방지"
+        - "성능 벤치마크 통과"
+
+# ============================================================
+# 완료된 작업 기록
+# ============================================================
+completed:
+  - id: CL-002
+    title: "Response streaming 구현"
+    completed_at: "2025-12-19T13:30:00"
+    agent: "typescript-dev"
+    duration: "30m"
+    result:
+      tests_created: 22
+      tests_passed: 22
+      coverage: "100%"
+    files_modified:
+      - desktop/shared/types.ts
+      - desktop/electron/browser/adapters/base-adapter.ts
+      - desktop/electron/browser/adapters/chatgpt-adapter.ts
+      - desktop/electron/debate/debate-controller.ts
+      - desktop/electron/preload.ts
+      - desktop/src/lib/ipc.ts
+      - desktop/src/stores/debate-store.ts
+      - desktop/src/components/ResponseViewer.tsx
+    notes: |
+      - 200ms 폴링으로 DOM 변경 감지
+      - debate:stream-chunk IPC 이벤트 추가
+      - 자동 스크롤 및 스트리밍 인디케이터
+      - 다중 동시 스트림 지원
+
+  - id: CL-001
+    title: "Cycle detection 알고리즘 개선"
+    completed_at: "2025-12-19T12:30:00"
+    agent: "typescript-dev"
+    duration: "30m"
+    result:
+      tests_created: 28
+      tests_passed: 28
+      coverage: "94.04%"
+    files_modified:
+      - desktop/electron/debate/cycle-detector.ts
+      - desktop/shared/types.ts
+      - desktop/tests/unit/debate/cycle-detector.test.ts
+      - desktop/docs/cycle-detection-improvements.md
+      - desktop/docs/cycle-detection-example.ts
+    notes: |
+      - Levenshtein Distance 알고리즘 구현
+      - A→A→A, A→B→A, 정체 패턴 감지
+      - 설정 가능한 유사도 임계값 (기본 0.85)
+      - 하위 호환성 유지 (Judge 모델 옵션)
+
+  - id: PT-001
+    title: "Integration tests Python ↔ Desktop"
+    completed_at: "2025-12-19T10:30:00"
+    agent: "test-engineer"
+    duration: "15m"
+    result:
+      tests_created: 22
+      tests_passed: 42
+      coverage: "55%"
+    files_modified:
+      - tests/integration/__init__.py
+      - tests/integration/test_provider_integration.py
+      - tests/integration/test_simple_integration.py
+      - tests/integration/README.md
+    notes: "TDD 원칙 준수, AAA 패턴 적용"
+
+# ============================================================
+# 서브 에이전트 작업 로그
+# ============================================================
+agent_logs:
+  - timestamp: "2025-12-19T13:30:00"
+    agent: "typescript-dev"
+    task_id: "CL-002"
+    action: "Response streaming 구현"
+    status: "success"
+    summary: "22개 테스트 통과, 8개 파일 수정, 스트리밍 UI 완성"
+
+  - timestamp: "2025-12-19T12:30:00"
+    agent: "typescript-dev"
+    task_id: "CL-001"
+    action: "Cycle detection 알고리즘 개선"
+    status: "success"
+    summary: "28개 테스트 통과, 94.04% 커버리지 달성"
+
+  - timestamp: "2025-12-19T11:00:00"
+    agent: "Orchestrator"
+    task_id: null
+    action: "CLAUDE.md 지침 추가 및 checklist.yaml 생성"
+    status: "success"
+    summary: "서브 에이전트 관리 워크플로우 문서화 완료"
+
+  - timestamp: "2025-12-19T10:30:00"
+    agent: "test-engineer"
+    task_id: "PT-001"
+    action: "Integration tests 작성"
+    status: "success"
+    summary: "22개 통합 테스트 작성, 42개 테스트 통과"
+
+  - timestamp: "2025-12-19T10:00:00"
+    agent: "Explore"
+    task_id: null
+    action: "프로젝트 구조 분석"
+    status: "success"
+    summary: "Python Core 70%, Desktop 60% 완성 확인"
+
+# ============================================================
+# 메트릭스
+# ============================================================
+metrics:
+  total_tasks: 7
+  completed: 3
+  in_progress: 0
+  pending: 4
+  blocked: 0
+
+  coverage:
+    python: "55%"
+    desktop: "95%"
+
+  last_agent_activity: "2025-12-19T13:30:00"

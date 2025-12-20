@@ -1,0 +1,12 @@
+Hypothesis #1 Verification
+Result: confirmed
+Timestamp: 2025-12-21T03:41:26.539545
+
+Evidence:
+검증 결과:
+
+1. getResponse()가 selector-config.ts의 responseContainer를 사용하지 않음
+2. 하드코딩된 선택자가 중복되어 있고 순서가 다름
+3. isWriting과 동일한 문제 패턴
+
+결론: 가설 확인됨. getResponse도 selector-config.ts를 사용하도록 수정 필요

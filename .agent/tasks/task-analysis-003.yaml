@@ -1,0 +1,38 @@
+# Task Definition
+id: task-analysis-003
+type: research
+subagent_type: Explore
+
+instruction: |
+  테스트 커버리지 및 품질 분석
+
+  분석 대상:
+  - D:\AI\claude01\mad_framework\tests\ (Python)
+  - D:\AI\claude01\mad_framework\desktop\tests\ (TypeScript)
+
+  분석 항목:
+  1. Python 테스트 파일 수 및 테스트 케이스 수
+  2. Desktop 테스트 파일 수 및 테스트 케이스 수
+  3. 모듈별 테스트 커버리지 추정
+  4. 테스트되지 않은 핵심 모듈 식별
+  5. 통합 테스트 vs 단위 테스트 비율
+
+  출력 형식 (YAML):
+  ```yaml
+  test_analysis:
+    python:
+      test_files: N
+      test_cases: N
+      covered_modules: [...]
+      uncovered_modules: [...]
+    desktop:
+      test_files: N
+      test_cases: N
+      covered_modules: [...]
+      uncovered_modules: [...]
+    quality_score: "N/10"
+    recommendations: [...]
+  ```
+
+status: pending
+created_at: 2025-12-19T17:50:00Z

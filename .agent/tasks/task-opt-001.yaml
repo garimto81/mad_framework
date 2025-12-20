@@ -1,0 +1,28 @@
+# Task Definition
+id: task-opt-001
+type: research
+subagent_type: Explore
+
+instruction: |
+  CLAUDE.md 현재 상태 분석 및 문제점 식별
+
+  분석 대상:
+  - D:\AI\claude01\mad_framework\CLAUDE.md
+  - D:\AI\claude01\CLAUDE.md (상위 레벨)
+
+  분석 항목:
+  1. 토큰 사용량 추정 (문자 수 / 4 ≈ 토큰)
+  2. 중복 내용 식별 (상위 CLAUDE.md와의 중복)
+  3. 불필요한 상세 설명 식별
+  4. 압축 가능한 테이블/목록 식별
+  5. 필수 정보 vs 선택적 정보 분류
+
+  출력 형식:
+  - 현재 토큰 수 추정
+  - 중복 섹션 목록
+  - 압축 가능 영역
+  - 제거 가능 영역
+  - 필수 유지 영역
+
+status: pending
+created_at: 2025-12-19T17:30:00Z

@@ -1,0 +1,20 @@
+# Task: 서버 기반 아키텍처
+id: task-003
+created_at: 2025-12-19T00:00:00Z
+status: assigned
+
+task:
+  description: "서버 기반 브라우저 자동화 아키텍처 분석 (Browserless, Bright Data, 자체 서버)"
+  type: research
+  scope:
+    - "클라우드 vs 로컬 서버"
+    - "비용 분석"
+    - "세션 지속성"
+    - "스케일링 가능성"
+  expected_output:
+    format: comparison_table
+
+agent:
+  type: research
+  model: sonnet
+  timeout: 300

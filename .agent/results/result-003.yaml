@@ -1,0 +1,62 @@
+# Result: 서버 기반 아키텍처 분석
+task_id: task-003
+agent_id: agent-research-003
+status: completed
+duration_seconds: ~240
+
+result:
+  summary: "Browserless (VPS) 권장. 월 $21, 세션 지속성 90일, 완전 제어"
+
+  data:
+    comparison:
+      - name: Browserless_VPS
+        deployment: "Docker on VPS"
+        monthly_cost: "$21"
+        session_persist: "90일 (Enterprise)"
+        concurrent_sessions: "10+"
+        complexity: "중간"
+        data_location: "자체 서버"
+        recommendation: "권장 (비용 효율적)"
+
+      - name: Bright_Data
+        deployment: "클라우드 전용"
+        monthly_cost: "$10+ (트래픽 기반)"
+        session_persist: "자동 관리"
+        concurrent_sessions: "무제한"
+        complexity: "낮음"
+        data_location: "클라우드"
+        recommendation: "소규모/프로토타입"
+
+      - name: VPS_Playwright
+        deployment: "VPS 직접 설정"
+        monthly_cost: "$21"
+        session_persist: "userDataDir 커스텀"
+        concurrent_sessions: "서버 스펙 의존"
+        complexity: "높음"
+        data_location: "자체 서버"
+        recommendation: "완전 제어 필요 시"
+
+      - name: Local_Docker
+        deployment: "로컬 PC"
+        monthly_cost: "$0"
+        session_persist: "Volume 마운트"
+        concurrent_sessions: "로컬 리소스 의존"
+        complexity: "낮음"
+        data_location: "로컬"
+        recommendation: "개발/테스트용"
+
+    vps_recommendation:
+      spec: "4 cores, 8GB RAM"
+      provider: "SSD Nodes / Kamatera"
+      monthly: "$21"
+
+    architecture: |
+      Client → Nginx (SSL) → MAD FastAPI → Browserless → 3 Chromium
+
+    conclusion: |
+      단계별 전략:
+      Phase 1: 로컬 Docker 테스트 (1-2주)
+      Phase 2: VPS + Browserless 배포 (2-3주)
+      Phase 3: 프로덕션 최적화 (1-2주)
+
+errors: []

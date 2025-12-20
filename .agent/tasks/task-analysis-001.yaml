@@ -1,0 +1,35 @@
+# Task Definition
+id: task-analysis-001
+type: research
+subagent_type: Explore
+
+instruction: |
+  Python Core (src/mad/) 구현 상태 분석
+
+  분석 대상:
+  - D:\AI\claude01\mad_framework\src\mad\
+
+  분석 항목:
+  1. 모듈별 구현 완성도 (core, agents, providers, presets, strategies, utils)
+  2. 각 파일의 핵심 클래스/함수 구현 여부
+  3. TODO/FIXME/NotImplementedError 검색
+  4. 타입 힌트 적용률
+  5. 누락된 기능 식별
+
+  출력 형식 (YAML):
+  ```yaml
+  python_analysis:
+    modules:
+      - name: "core"
+        files: [...]
+        completion: "N%"
+        missing: [...]
+      - name: "agents"
+        ...
+    overall_completion: "N%"
+    blockers: [...]
+    recommendations: [...]
+  ```
+
+status: pending
+created_at: 2025-12-19T17:50:00Z

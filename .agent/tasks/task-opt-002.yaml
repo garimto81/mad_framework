@@ -1,0 +1,30 @@
+# Task Definition
+id: task-opt-002
+type: architect
+subagent_type: architect
+
+instruction: |
+  CLAUDE.md 최적화 방향 설계 - 토큰 절감 전략
+
+  입력: task-opt-001 결과 (results/result-opt-001.yaml)
+
+  설계 항목:
+  1. 토큰 절감 목표 설정 (30-50% 감소)
+  2. 섹션별 압축 전략
+  3. 테이블 최적화 방안
+  4. 코드 예시 축소 방안
+  5. 상위 CLAUDE.md 참조 활용 전략
+
+  고려사항:
+  - Claude가 이해하는 데 필수적인 정보 유지
+  - 빌드/테스트 명령어는 반드시 보존
+  - 아키텍처 핵심만 유지
+
+  출력:
+  - 최적화 전/후 예상 토큰 수
+  - 섹션별 구체적 수정 방안
+  - 우선순위 (High/Medium/Low)
+
+status: pending
+depends_on: [task-opt-001]
+created_at: 2025-12-19T17:30:00Z

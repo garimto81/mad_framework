@@ -1,0 +1,30 @@
+# Task Definition
+id: task-opt-003
+type: coder
+subagent_type: docs-writer
+
+instruction: |
+  CLAUDE.md 최적화 적용
+
+  입력:
+  - task-opt-002 결과 (results/result-opt-002.yaml)
+  - 현재 CLAUDE.md (D:\AI\claude01\mad_framework\CLAUDE.md)
+
+  적용 사항:
+  1. 섹션 압축 및 중복 제거
+  2. 테이블 최적화
+  3. 코드 예시 축소
+  4. 불필요한 설명 제거
+
+  제약:
+  - Commands 섹션 명령어는 모두 보존
+  - Architecture 핵심 모듈 정보 유지
+  - Environment Variables 보존
+
+  출력:
+  - 최적화된 CLAUDE.md 작성
+  - 변경 요약 (before/after 토큰 수)
+
+status: pending
+depends_on: [task-opt-002]
+created_at: 2025-12-19T17:30:00Z

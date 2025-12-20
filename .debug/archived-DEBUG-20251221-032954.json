@@ -1,0 +1,48 @@
+{
+  "issue_id": "DEBUG-20251221-032954",
+  "issue_description": "isWriting이 false인데도 수정이 안 되는 문제",
+  "created_at": "2025-12-21T03:29:54.652526",
+  "current_phase": "D4_FIX",
+  "hypothesis": "Claude.ai UI 업데이트로 인해 isWriting() 함수의 DOM 선택자들이 현재 UI와 불일치하여, 응답 중임에도 Stop 버튼이나 streaming 속성을 감지하지 못해 false를 반환함. 특히 aria-label=\"Stop Response\" 등의 선택자가 변경되었을 가능성 높음.",
+  "hypothesis_count": 1,
+  "verification_plan": "검증 방법:\n1. Claude.ai에서 실제 응답 진행 중일 때 개발자 도구로 DOM 구조 확인\n2. 현재 코드의 선택자들과 실제 DOM 요소 비교:\n   - Stop 버튼: [aria-label=\"Stop Response\"], [aria-label*=\"Stop\"]\n   - Streaming: [data-is-streaming=\"true\"]\n   - Send 버튼: [aria-label=\"Send Message\"], button[type=\"submit\"]\n3. isWriting() 로그 출력 확인하여 debug 객체 분석\n4. 불일치하는 선택자 식별 및 올바른 선택자 도출",
+  "verification_result": "confirmed",
+  "hypothesis_confirmed": true,
+  "history": [
+    {
+      "phase": "D0_ISSUE",
+      "timestamp": "2025-12-21T03:29:54.652532",
+      "data": {
+        "description": "isWriting이 false인데도 수정이 안 되는 문제"
+      }
+    },
+    {
+      "phase": "D1_ANALYZE",
+      "timestamp": "2025-12-21T03:32:17.974314",
+      "data": {
+        "hypothesis": "Claude.ai UI 업데이트로 인해 isWriting() 함수의 DOM 선택자들이 현재 UI와 불일치하여, 응답 중임에도 Stop 버튼이나 streaming 속성을 감지하지 못해 false를 반환함. 특히 aria-label=\"Stop Response\" 등의 선택자가 변경되었을 가능성 높음.",
+        "count": 1
+      }
+    },
+    {
+      "phase": "D2_PLAN",
+      "timestamp": "2025-12-21T03:32:31.676377",
+      "data": {
+        "plan": "검증 방법:\n1. Claude.ai에서 실제 응답 진행 중일 때 개발자 도구로 DOM 구조 확인\n2. 현재 코드의 선택자들과 실제 DOM 요소 비교:\n   - Stop 버튼: [aria-label=\"Stop Response\"], [aria-label*=\"Stop\"]\n   - Streaming: [data-is-streaming=\"true\"]\n   - Send 버튼: [aria-label=\"Send Message\"], button[type=\"submit\"]\n3. isWriting() 로그 출력 확인하여 debug 객체 분석\n4. 불일치하는 선택자 식별 및 올바른 선택자 도출"
+      }
+    },
+    {
+      "phase": "D3_VERIFY",
+      "timestamp": "2025-12-21T03:34:00.064317",
+      "data": {
+        "result": "confirmed",
+        "evidence": "검증 결과:\n\n1. isWriting() 함수가 selector-config.ts의 fallback 시스템을 사용하지 않고 \n   선택자를 하드코딩하고 있음 (claude-adapter.ts:108-191)\n\n2. Stop 버튼 관련 선택자가 typingIndicator 설정에 포함되어 있지 않음\n\n3. Claude.ai UI 변경 시 isWriting()의 하드코딩된 선택자가 \n   업데이트되지 않아 감지 실패\n\n결론: 가설 확인됨. DOM 선택자 불일치 문제."
+      }
+    },
+    {
+      "phase": "D4_FIX",
+      "timestamp": "2025-12-21T03:34:11.279928",
+      "data": {}
+    }
+  ]
+}

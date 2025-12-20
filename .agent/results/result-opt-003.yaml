@@ -1,0 +1,62 @@
+# Result: task-opt-003
+id: result-opt-003
+task_id: task-opt-003
+status: completed
+completed_at: 2025-12-19T17:45:00Z
+
+optimization_result:
+  before:
+    lines: 200
+    chars: 7420
+    estimated_tokens: 1855
+
+  after:
+    lines: 77
+    chars: 2180
+    estimated_tokens: 545
+
+  reduction:
+    lines: "-123 (61.5%)"
+    chars: "-5240 (70.6%)"
+    tokens: "-1310 (70.6%)"
+
+changes_applied:
+  - section: "Header"
+    action: "머리말 제거, 1줄 요약으로 변경"
+
+  - section: "Commands"
+    action: "Python/Desktop 통합, 주석 최소화"
+    before_lines: 18
+    after_lines: 13
+
+  - section: "Architecture"
+    action: "테이블 압축, 코드 예시 1줄화, 중복 제거"
+    before_lines: 75
+    after_lines: 26
+
+  - section: "Key Patterns"
+    action: "인터페이스만 남기고 Usage 예시 제거"
+    before_lines: 34
+    after_lines: 11
+
+  - section: "Testing"
+    action: "Commands에 통합 (섹션 제거)"
+    before_lines: 14
+    after_lines: 0
+
+  - section: "IPC Events"
+    action: "Patterns 코드 블록에 인라인 통합"
+    before_lines: 11
+    after_lines: 0
+
+  - section: "Preset Elements"
+    action: "Config 섹션에 1줄로 압축"
+    before_lines: 7
+    after_lines: 1
+
+preserved:
+  - "모든 빌드/테스트 명령어"
+  - "핵심 파일 경로 및 역할"
+  - "환경 변수 키"
+  - "중요 상수 값 및 위치"
+  - "핵심 패턴 인터페이스"

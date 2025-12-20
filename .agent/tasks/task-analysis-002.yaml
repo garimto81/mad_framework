@@ -1,0 +1,39 @@
+# Task Definition
+id: task-analysis-002
+type: research
+subagent_type: Explore
+
+instruction: |
+  Desktop App (desktop/) 구현 상태 분석
+
+  분석 대상:
+  - D:\AI\claude01\mad_framework\desktop\
+
+  분석 항목:
+  1. Electron Main Process 구현 상태 (electron/)
+  2. React Renderer 구현 상태 (src/)
+  3. Playwright PoC 구현 상태 (playwright/)
+  4. Shared Types 정의 상태 (shared/)
+  5. TODO/FIXME 검색
+  6. 누락된 기능 식별
+
+  출력 형식 (YAML):
+  ```yaml
+  desktop_analysis:
+    main_process:
+      completion: "N%"
+      components: [...]
+      missing: [...]
+    renderer:
+      completion: "N%"
+      components: [...]
+      missing: [...]
+    playwright:
+      completion: "N%"
+      status: "PoC/Ready/..."
+    overall_completion: "N%"
+    blockers: [...]
+  ```
+
+status: pending
+created_at: 2025-12-19T17:50:00Z
