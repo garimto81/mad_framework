@@ -27,18 +27,20 @@ const VALID_JSON_RESPONSE = JSON.stringify({
 });
 
 // Mocks
-const createMockBrowserViewManager = () => ({
+const createMockAdapter = () => ({
+  isLoggedIn: vi.fn().mockResolvedValue(true),
+  waitForInputReady: vi.fn().mockResolvedValue(undefined),
+  inputPrompt: vi.fn().mockResolvedValue(undefined),
+  sendMessage: vi.fn().mockResolvedValue(undefined),
+  waitForResponse: vi.fn().mockResolvedValue(undefined),
+  extractResponse: vi.fn().mockResolvedValue(VALID_JSON_RESPONSE),
+  isWriting: vi.fn().mockResolvedValue(false),
+  getTokenCount: vi.fn().mockResolvedValue(100),
+});
+
+const createMockBrowserViewManager = (mockAdapter: ReturnType<typeof createMockAdapter>) => ({
   createView: vi.fn(),
-  getAdapter: vi.fn().mockReturnValue({
-    isLoggedIn: vi.fn().mockResolvedValue(true),
-    waitForInputReady: vi.fn().mockResolvedValue(undefined),
-    inputPrompt: vi.fn().mockResolvedValue(undefined),
-    sendMessage: vi.fn().mockResolvedValue(undefined),
-    waitForResponse: vi.fn().mockResolvedValue(undefined),
-    extractResponse: vi.fn().mockResolvedValue(VALID_JSON_RESPONSE),
-    isWriting: vi.fn().mockResolvedValue(false),
-    getTokenCount: vi.fn().mockResolvedValue(100),
-  }),
+  getAdapter: vi.fn().mockReturnValue(mockAdapter),
   checkLoginStatus: vi.fn().mockResolvedValue({
     chatgpt: { isLoggedIn: true },
     claude: { isLoggedIn: true },
@@ -68,6 +70,7 @@ const createMockEventEmitter = () => ({
 
 describe('DebateController', () => {
   let controller: DebateController;
+  let mockAdapter: ReturnType<typeof createMockAdapter>;
   let mockBrowserManager: ReturnType<typeof createMockBrowserViewManager>;
   let mockRepository: ReturnType<typeof createMockRepository>;
   let mockCycleDetector: ReturnType<typeof createMockCycleDetector>;
@@ -83,7 +86,10 @@ describe('DebateController', () => {
   };
 
   beforeEach(() => {
-    mockBrowserManager = createMockBrowserViewManager();
+    vi.clearAllMocks();
+
+    mockAdapter = createMockAdapter();
+    mockBrowserManager = createMockBrowserViewManager(mockAdapter);
     mockRepository = createMockRepository();
     mockCycleDetector = createMockCycleDetector();
     mockEventEmitter = createMockEventEmitter();
@@ -94,8 +100,6 @@ describe('DebateController', () => {
       mockCycleDetector as any,
       mockEventEmitter as any
     );
-
-    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -212,12 +216,17 @@ describe('DebateController', () => {
         versionHistory: [],
       };
 
+      // Mock calls order:
+      // 1. L107 main loop (progress) - return element
+      // 2. L213 executeIteration (prompt building) - return element
+      // 3. L145 main loop (re-check) - return empty (complete)
       mockRepository.getIncompleteElements
-        .mockResolvedValueOnce([element])
-        .mockResolvedValueOnce([]);
+        .mockResolvedValueOnce([element])  // L107 - progress
+        .mockResolvedValueOnce([element])  // L213 - prompt building
+        .mockResolvedValueOnce([]);        // L145 - complete
 
       // Mock response with high score
-      mockBrowserManager.getAdapter().extractResponse.mockResolvedValue(
+      mockAdapter.extractResponse.mockResolvedValue(
         JSON.stringify({
           elements: [{ name: '보안', score: 92, critique: 'Good' }],
         })
@@ -241,14 +250,17 @@ describe('DebateController', () => {
         versionHistory: [],
       };
 
-      // Each iteration calls getIncompleteElements 3 times
-      // 4 iterations before complete = 12 mock calls + final empty
+      // Each iteration calls getIncompleteElements 4 times:
+      // L107 (progress), L213 (executeIteration), L145 (re-check), L156 (re-check after cycle)
+      // 4 iterations = 16 mock calls, last one returns empty
       mockRepository.getIncompleteElements
         // Iteration 1 (chatgpt)
-        .mockResolvedValueOnce([element])  // executeIteration
-        .mockResolvedValueOnce([element])  // main loop check
-        .mockResolvedValueOnce([element])  // re-check
+        .mockResolvedValueOnce([element])  // L107 - progress
+        .mockResolvedValueOnce([element])  // L213 - prompt building
+        .mockResolvedValueOnce([element])  // L145 - re-check
+        .mockResolvedValueOnce([element])  // L156 - re-check after cycle
         // Iteration 2 (claude)
+        .mockResolvedValueOnce([element])
         .mockResolvedValueOnce([element])
         .mockResolvedValueOnce([element])
         .mockResolvedValueOnce([element])
@@ -256,10 +268,11 @@ describe('DebateController', () => {
         .mockResolvedValueOnce([element])
         .mockResolvedValueOnce([element])
         .mockResolvedValueOnce([element])
+        .mockResolvedValueOnce([element])
         // Iteration 4 (claude)
         .mockResolvedValueOnce([element])
         .mockResolvedValueOnce([element])
-        .mockResolvedValueOnce([]);  // Complete after 4 iterations
+        .mockResolvedValueOnce([]);  // L145 - complete
 
       await controller.start(defaultConfig);
 
@@ -285,8 +298,9 @@ describe('DebateController', () => {
       };
 
       mockRepository.getIncompleteElements
-        .mockResolvedValueOnce([element])
-        .mockResolvedValueOnce([]);
+        .mockResolvedValueOnce([element])  // L107 - progress
+        .mockResolvedValueOnce([element])  // L213 - prompt building
+        .mockResolvedValueOnce([]);        // L145 - complete
 
       await controller.start(defaultConfig);
 
@@ -315,11 +329,12 @@ describe('DebateController', () => {
         ],
       };
 
-      // Flow: executeIteration calls getIncompleteElements, then main loop checks, then cycle check, then re-check
+      // Flow: L107 (progress), L213 (executeIteration), L145 (re-check), L156 (re-check after cycle)
       mockRepository.getIncompleteElements
-        .mockResolvedValueOnce([element])  // executeIteration - prompt building
-        .mockResolvedValueOnce([element])  // main loop - check after execute
-        .mockResolvedValueOnce([]);        // main loop - re-check after cycle detection
+        .mockResolvedValueOnce([element])  // L107 - progress
+        .mockResolvedValueOnce([element])  // L213 - prompt building
+        .mockResolvedValueOnce([element])  // L145 - re-check (needs to be non-empty for cycle detection)
+        .mockResolvedValueOnce([]);        // L156 - re-check after cycle detection
 
       mockRepository.getLast3Versions.mockResolvedValue(element.versionHistory);
 
@@ -346,9 +361,10 @@ describe('DebateController', () => {
       };
 
       mockRepository.getIncompleteElements
-        .mockResolvedValueOnce([element])  // executeIteration - prompt building
-        .mockResolvedValueOnce([element])  // main loop - check after execute
-        .mockResolvedValueOnce([]);        // main loop - re-check after cycle detection
+        .mockResolvedValueOnce([element])  // L107 - progress
+        .mockResolvedValueOnce([element])  // L213 - prompt building
+        .mockResolvedValueOnce([element])  // L145 - re-check
+        .mockResolvedValueOnce([]);        // L156 - re-check after cycle detection
 
       mockRepository.getLast3Versions.mockResolvedValue(element.versionHistory);
       mockCycleDetector.detectCycle.mockResolvedValue(true);
@@ -376,9 +392,10 @@ describe('DebateController', () => {
       };
 
       mockRepository.getIncompleteElements
-        .mockResolvedValueOnce([element])  // executeIteration - prompt building
-        .mockResolvedValueOnce([element])  // main loop - check after execute
-        .mockResolvedValueOnce([]);        // main loop - re-check after cycle detection
+        .mockResolvedValueOnce([element])  // L107 - progress
+        .mockResolvedValueOnce([element])  // L213 - prompt building
+        .mockResolvedValueOnce([element])  // L145 - re-check
+        .mockResolvedValueOnce([]);        // L156 - re-check after cycle detection
 
       mockRepository.getLast3Versions.mockResolvedValue(element.versionHistory);
       mockCycleDetector.detectCycle.mockResolvedValue(true);
@@ -463,7 +480,7 @@ describe('DebateController', () => {
       };
 
       // Return empty response
-      mockBrowserManager.getAdapter().extractResponse.mockResolvedValue('');
+      mockAdapter.extractResponse.mockResolvedValue('');
 
       // After 3 empty responses, circuit breaker should trigger
       mockRepository.getIncompleteElements.mockResolvedValue([element]);
@@ -488,7 +505,7 @@ describe('DebateController', () => {
       };
 
       // Return empty response every time
-      mockBrowserManager.getAdapter().extractResponse.mockResolvedValue('');
+      mockAdapter.extractResponse.mockResolvedValue('');
       mockRepository.getIncompleteElements.mockResolvedValue([element]);
 
       await controller.start(defaultConfig);
@@ -510,7 +527,7 @@ describe('DebateController', () => {
         versionHistory: [],
       };
 
-      mockBrowserManager.getAdapter().inputPrompt.mockRejectedValue(
+      mockAdapter.inputPrompt.mockRejectedValue(
         new Error('Input failed: textarea not found')
       );
       mockRepository.getIncompleteElements.mockResolvedValue([element]);
@@ -536,7 +553,7 @@ describe('DebateController', () => {
         versionHistory: [],
       };
 
-      mockBrowserManager.getAdapter().sendMessage.mockRejectedValue(
+      mockAdapter.sendMessage.mockRejectedValue(
         new Error('Send failed: button disabled')
       );
       mockRepository.getIncompleteElements.mockResolvedValue([element]);
@@ -562,7 +579,7 @@ describe('DebateController', () => {
         versionHistory: [],
       };
 
-      mockBrowserManager.getAdapter().waitForResponse.mockRejectedValue(
+      mockAdapter.waitForResponse.mockRejectedValue(
         new Error('Response timeout for chatgpt')
       );
       mockRepository.getIncompleteElements.mockResolvedValue([element]);
@@ -589,7 +606,7 @@ describe('DebateController', () => {
       };
 
       // Return invalid JSON
-      mockBrowserManager.getAdapter().extractResponse.mockResolvedValue('Not a valid JSON response');
+      mockAdapter.extractResponse.mockResolvedValue('Not a valid JSON response');
       mockRepository.getIncompleteElements.mockResolvedValue([element]);
 
       await controller.start(defaultConfig);
@@ -614,12 +631,17 @@ describe('DebateController', () => {
         versionHistory: [],
       };
 
+      // Mock calls order:
+      // 1. L107 main loop (progress event) - return element
+      // 2. L213 executeIteration (prompt building) - return element
+      // 3. L145 main loop (re-check after iteration) - return empty (complete)
       mockRepository.getIncompleteElements
-        .mockResolvedValueOnce([element])
-        .mockResolvedValueOnce([]);
+        .mockResolvedValueOnce([element])  // L107 - progress
+        .mockResolvedValueOnce([element])  // L213 - prompt building
+        .mockResolvedValueOnce([]);        // L145 - complete
 
       const response = '```json\n{"elements": [{"name": "보안", "score": 85, "critique": "Good"}]}\n```';
-      mockBrowserManager.getAdapter().extractResponse.mockResolvedValue(response);
+      mockAdapter.extractResponse.mockResolvedValue(response);
 
       await controller.start(defaultConfig);
 
@@ -643,11 +665,12 @@ describe('DebateController', () => {
       };
 
       mockRepository.getIncompleteElements
-        .mockResolvedValueOnce([element])
-        .mockResolvedValueOnce([]);
+        .mockResolvedValueOnce([element])  // L107 - progress
+        .mockResolvedValueOnce([element])  // L213 - prompt building
+        .mockResolvedValueOnce([]);        // L145 - complete
 
       const response = '```\n{"elements": [{"name": "보안", "score": 80, "critique": "OK"}]}\n```';
-      mockBrowserManager.getAdapter().extractResponse.mockResolvedValue(response);
+      mockAdapter.extractResponse.mockResolvedValue(response);
 
       await controller.start(defaultConfig);
 
@@ -671,11 +694,12 @@ describe('DebateController', () => {
       };
 
       mockRepository.getIncompleteElements
-        .mockResolvedValueOnce([element])
-        .mockResolvedValueOnce([]);
+        .mockResolvedValueOnce([element])  // L107 - progress
+        .mockResolvedValueOnce([element])  // L213 - prompt building
+        .mockResolvedValueOnce([]);        // L145 - complete
 
       const response = 'Here is my analysis: {"elements": [{"name": "보안", "score": 88, "critique": "Great"}]}';
-      mockBrowserManager.getAdapter().extractResponse.mockResolvedValue(response);
+      mockAdapter.extractResponse.mockResolvedValue(response);
 
       await controller.start(defaultConfig);
 
@@ -699,11 +723,12 @@ describe('DebateController', () => {
       };
 
       mockRepository.getIncompleteElements
-        .mockResolvedValueOnce([element])
-        .mockResolvedValueOnce([]);
+        .mockResolvedValueOnce([element])  // L107 - progress
+        .mockResolvedValueOnce([element])  // L213 - prompt building
+        .mockResolvedValueOnce([]);        // L145 - complete
 
       const response = '[{"name": "보안", "score": 82, "critique": "Acceptable"}]';
-      mockBrowserManager.getAdapter().extractResponse.mockResolvedValue(response);
+      mockAdapter.extractResponse.mockResolvedValue(response);
 
       await controller.start(defaultConfig);
 
@@ -727,11 +752,12 @@ describe('DebateController', () => {
       };
 
       mockRepository.getIncompleteElements
-        .mockResolvedValueOnce([element])
-        .mockResolvedValueOnce([]);
+        .mockResolvedValueOnce([element])  // L107 - progress
+        .mockResolvedValueOnce([element])  // L213 - prompt building
+        .mockResolvedValueOnce([]);        // L145 - complete
 
       const response = '분석 결과입니다:\n- 보안: 85점\n평가 완료';
-      mockBrowserManager.getAdapter().extractResponse.mockResolvedValue(response);
+      mockAdapter.extractResponse.mockResolvedValue(response);
 
       await controller.start(defaultConfig);
 
@@ -755,11 +781,12 @@ describe('DebateController', () => {
       };
 
       mockRepository.getIncompleteElements
-        .mockResolvedValueOnce([element])
-        .mockResolvedValueOnce([]);
+        .mockResolvedValueOnce([element])  // L107 - progress
+        .mockResolvedValueOnce([element])  // L213 - prompt building
+        .mockResolvedValueOnce([]);        // L145 - complete
 
       const response = '{"elements": [{"elementName": "보안", "score": 90, "feedback": "Excellent"}]}';
-      mockBrowserManager.getAdapter().extractResponse.mockResolvedValue(response);
+      mockAdapter.extractResponse.mockResolvedValue(response);
 
       await controller.start(defaultConfig);
 
