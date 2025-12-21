@@ -304,11 +304,19 @@ export class ChatGPTAdapter extends BaseLLMAdapter {
         debug?: object;
       }>(script, { success: false, content: '', error: 'script failed' });
 
-      console.log(`[chatgpt] getResponse result:`, JSON.stringify(result).substring(0, 500));
+      // Issue #9: 상세 디버그 로그 출력
+      console.log(`[chatgpt] getResponse result:`);
+      console.log(`  - success: ${result.success}`);
+      console.log(`  - content length: ${result.content?.length || 0}`);
+      console.log(`  - selector: ${result.selector || 'none'}`);
+      if (result.error) {
+        console.log(`  - error: ${result.error}`);
+      }
 
-      // Log detailed debug info when extraction fails
-      if (!result.success && result.debug) {
-        console.log(`[chatgpt] DEBUG info:`, JSON.stringify(result.debug, null, 2));
+      // Log detailed debug info
+      if (result.debug) {
+        console.log(`[chatgpt] DEBUG info:`);
+        console.log(JSON.stringify(result.debug, null, 2));
       }
 
       if (!result.success || !result.content) {
@@ -409,7 +417,10 @@ export class ChatGPTAdapter extends BaseLLMAdapter {
       script,
       { writing: false, debug: {} }
     );
-    console.log('[chatgpt:isWriting]', JSON.stringify(result));
+    // Issue #9: 상세 디버그 로그
+    console.log('[chatgpt:isWriting]');
+    console.log(`  - writing: ${result.writing}`);
+    console.log(`  - debug:`, JSON.stringify(result.debug, null, 2));
     return result.writing;
   }
 
