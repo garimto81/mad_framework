@@ -141,5 +141,37 @@ describe('ChatGPTAdapter', () => {
 
       expect(result).toBe('');
     });
+
+    // Issue #9: "코드 복사" 텍스트 제거 테스트
+    it('should strip "코드 복사" text from code blocks', async () => {
+      // ChatGPT 코드블록 위에 "코드 복사" 버튼 텍스트가 포함된 경우
+      const rawContent = 'json\n코드 복사\n{"elements": [1, 2, 3]}';
+      mockWebContents.executeJavaScript.mockResolvedValue({
+        success: true,
+        content: rawContent,
+        selector: '[data-message-author-role="assistant"]'
+      });
+
+      const result = await adapter.extractResponse();
+
+      // "코드 복사" 텍스트와 언어명이 제거되어야 함
+      expect(result).not.toContain('코드 복사');
+      expect(result).toContain('{"elements": [1, 2, 3]}');
+    });
+
+    it('should strip "Copy code" text from code blocks', async () => {
+      // 영어 UI인 경우
+      const rawContent = 'python\nCopy code\nprint("hello")';
+      mockWebContents.executeJavaScript.mockResolvedValue({
+        success: true,
+        content: rawContent,
+        selector: '[data-message-author-role="assistant"]'
+      });
+
+      const result = await adapter.extractResponse();
+
+      expect(result).not.toContain('Copy code');
+      expect(result).toContain('print("hello")');
+    });
   });
 });

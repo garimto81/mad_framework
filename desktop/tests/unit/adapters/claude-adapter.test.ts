@@ -114,4 +114,61 @@ describe('ClaudeAdapter', () => {
       expect(script).toContain('[data-testid="user-menu"]');
     });
   });
+
+  // Issue #9: Claude submitMessage 버튼 클릭 테스트
+  describe('submitMessage', () => {
+    it('should dispatch PointerEvent and MouseEvent sequence', async () => {
+      mockWebContents.executeJavaScript.mockResolvedValue({
+        success: true,
+        selector: 'button[aria-label="메시지 보내기"]',
+        debug: { tried: [], clicked: 'button[aria-label="메시지 보내기"]' }
+      });
+
+      const result = await adapter.submitMessage();
+
+      expect(result.success).toBe(true);
+      const script = mockWebContents.executeJavaScript.mock.calls[0][0];
+      // MouseEvent 시퀀스 확인
+      expect(script).toContain('PointerEvent');
+      expect(script).toContain('pointerdown');
+      expect(script).toContain('mousedown');
+      expect(script).toContain('mouseup');
+      expect(script).toContain('click');
+    });
+
+    it('should try Enter key when button click fails', async () => {
+      // 첫 번째 호출: 버튼 클릭 실패
+      // 두 번째 호출: Enter 키 성공
+      mockWebContents.executeJavaScript
+        .mockResolvedValueOnce({
+          success: false,
+          error: 'send button not found',
+          debug: { tried: [] }
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          method: 'enter-key'
+        });
+
+      const result = await adapter.submitMessage();
+
+      expect(result.success).toBe(true);
+      // Enter 키 스크립트가 호출되었는지 확인
+      expect(mockWebContents.executeJavaScript).toHaveBeenCalledTimes(2);
+    });
+
+    it('should try multiple selectors including Korean labels', async () => {
+      mockWebContents.executeJavaScript.mockResolvedValue({
+        success: true,
+        selector: 'button[aria-label="메시지 보내기"]'
+      });
+
+      await adapter.submitMessage();
+
+      const script = mockWebContents.executeJavaScript.mock.calls[0][0];
+      // 한국어 셀렉터 포함 확인
+      expect(script).toContain('aria-label="메시지 보내기"');
+      expect(script).toContain('aria-label="Send message"');
+    });
+  });
 });
