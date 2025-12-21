@@ -10,8 +10,10 @@ import type {
   DebateSession,
   DebateElement,
   DebateProgress,
+  DebateProgressExtended,
   DebateResponse,
   DebateResult,
+  DetailedStatus,
   ElementScoreUpdate,
   LLMProvider,
 } from '@shared/types';
@@ -23,7 +25,8 @@ interface DebateState {
   isRunning: boolean;
 
   // Progress tracking
-  currentProgress: DebateProgress | null;
+  currentProgress: DebateProgressExtended | null;
+  currentStatus: DetailedStatus | null;
   elements: DebateElement[];
   responses: DebateResponse[];
 
@@ -37,7 +40,8 @@ interface DebateState {
 
   // IPC event handlers
   initializeIPC: () => void;
-  handleProgress: (progress: DebateProgress) => void;
+  handleProgress: (progress: DebateProgressExtended) => void;
+  handleStatusUpdate: (status: DetailedStatus) => void;
   handleElementScore: (update: ElementScoreUpdate) => void;
   handleResponse: (response: DebateResponse) => void;
   handleCycleDetected: (data: { elementId: string; elementName: string }) => void;
@@ -50,6 +54,7 @@ export const useDebateStore = create<DebateState>((set, get) => ({
   session: null,
   isRunning: false,
   currentProgress: null,
+  currentStatus: null,
   elements: [],
   responses: [],
   error: null,
@@ -91,6 +96,7 @@ export const useDebateStore = create<DebateState>((set, get) => ({
       session: null,
       isRunning: false,
       currentProgress: null,
+      currentStatus: null,
       elements: [],
       responses: [],
       error: null,
@@ -103,6 +109,7 @@ export const useDebateStore = create<DebateState>((set, get) => ({
 
     // Subscribe to IPC events
     ipc.onDebateProgress(store.handleProgress);
+    ipc.onStatusUpdate(store.handleStatusUpdate);
     ipc.onElementScore(store.handleElementScore);
     ipc.onDebateResponse(store.handleResponse);
     ipc.onCycleDetected(store.handleCycleDetected);
@@ -111,13 +118,17 @@ export const useDebateStore = create<DebateState>((set, get) => ({
   },
 
   // Event handlers
-  handleProgress: (progress: DebateProgress) => {
+  handleProgress: (progress: DebateProgressExtended) => {
     set((state) => ({
       currentProgress: progress,
       session: state.session
         ? { ...state.session, currentIteration: progress.iteration }
         : null,
     }));
+  },
+
+  handleStatusUpdate: (status: DetailedStatus) => {
+    set({ currentStatus: status });
   },
 
   handleElementScore: (update: ElementScoreUpdate) => {

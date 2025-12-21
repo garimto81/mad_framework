@@ -44,6 +44,20 @@ export interface LLMStatus {
   timestamp: string;
 }
 
+// Detailed Status (for status-poller with progress estimation)
+export interface DetailedStatus extends LLMStatus {
+  responseProgress: number;  // 0-100% estimated progress
+}
+
+// Progress Log Entry (for in-memory storage)
+export interface ProgressLog {
+  id: string;
+  timestamp: string;
+  type: 'status' | 'score' | 'cycle' | 'iteration' | 'complete' | 'error';
+  provider?: LLMProvider;
+  data: Record<string, unknown>;
+}
+
 // Debate Element
 export interface DebateElement {
   id: string;
@@ -92,6 +106,14 @@ export interface DebateProgress {
   iteration: number;
   currentProvider: LLMProvider;
   phase: 'input' | 'waiting' | 'extracting' | 'scoring' | 'cycle_check';
+}
+
+// Extended Debate Progress (with element counts and estimated progress)
+export interface DebateProgressExtended extends DebateProgress {
+  totalElements: number;
+  completedElements: number;
+  currentElementName?: string;
+  estimatedProgress: number;  // 0-100%
 }
 
 // Element Score Update

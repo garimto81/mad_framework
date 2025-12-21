@@ -10,6 +10,7 @@ import type {
   DebateElement,
   LLMProvider,
   DebateProgress,
+  DebateProgressExtended,
   DebateResult,
   ElementScoreUpdate,
 } from '../../shared/types';
@@ -101,13 +102,23 @@ export class DebateController {
 
       await this.repository.updateIteration(this.debateId, iteration);
 
-      // Emit progress event
+      // Get element counts for progress
+      const allElements = this.getElementNames(config.preset);
+      let incompleteElements = await this.repository.getIncompleteElements(this.debateId);
+      const completedCount = allElements.length - incompleteElements.length;
+      const estimatedProgress = Math.round((completedCount / allElements.length) * 100);
+
+      // Emit extended progress event
       this.eventEmitter.emit('debate:progress', {
         sessionId: this.debateId,
         iteration,
         currentProvider: provider,
         phase: 'input',
-      } as DebateProgress);
+        totalElements: allElements.length,
+        completedElements: completedCount,
+        currentElementName: incompleteElements[0]?.name,
+        estimatedProgress,
+      } as DebateProgressExtended);
 
       // Execute iteration and track empty responses
       const hasValidResponse = await this.executeIteration(iteration, provider, config);
@@ -130,8 +141,8 @@ export class DebateController {
         consecutiveEmptyResponses = 0;
       }
 
-      // Check for incomplete elements
-      const incompleteElements = await this.repository.getIncompleteElements(this.debateId);
+      // Re-check for incomplete elements after iteration
+      incompleteElements = await this.repository.getIncompleteElements(this.debateId);
 
       if (incompleteElements.length === 0) {
         // All elements complete → End debate

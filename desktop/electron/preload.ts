@@ -44,6 +44,7 @@ const electronAPI = {
       'debate:cycle-detected',
       'debate:complete',
       'debate:error',
+      'debate:status-update', // Issue #13: Detailed status updates
       'login:status-changed',
     ];
 
