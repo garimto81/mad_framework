@@ -71,26 +71,30 @@ describe('ClaudeAdapter', () => {
   });
 
   describe('isWriting', () => {
-    it('should check data-is-streaming attribute', async () => {
-      // isWriting returns { writing: boolean, reason: string, debug: object }
+    it('should check stop button and send button state', async () => {
+      // Issue #11: 2025-12 DOM - stop/send button 기반 감지
       mockWebContents.executeJavaScript.mockResolvedValue({
         writing: true,
-        reason: 'streaming: [data-is-streaming="true"]',
-        debug: { streaming: true }
+        reason: 'stopButton: button[aria-label="응답 중지"]',
+        debug: { stopButton: true, sendButton: { exists: true, disabled: true } },
+        responseContent: ''
       });
 
       const isWriting = await adapter.isWriting();
 
       expect(isWriting).toBe(true);
       const script = mockWebContents.executeJavaScript.mock.calls[0][0];
-      expect(script).toContain('[data-is-streaming="true"]');
+      // Issue #11: 이제 stop 버튼, send 버튼 상태를 체크
+      expect(script).toContain('stopButton');
+      expect(script).toContain('sendButton');
     });
 
     it('should return false when not writing', async () => {
       mockWebContents.executeJavaScript.mockResolvedValue({
         writing: false,
         reason: 'none',
-        debug: { stopButton: false, streaming: false }
+        debug: { stopButton: false, sendButton: { exists: true, disabled: false } },
+        responseContent: ''
       });
 
       const isWriting = await adapter.isWriting();

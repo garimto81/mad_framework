@@ -11,18 +11,24 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BrowserViewManager } from '../../../electron/browser/browser-view-manager';
 import type { LLMProvider } from '../../../shared/types';
 
+// Mock BrowserView instance for tracking
+const mockViewInstances: Map<string, any> = new Map();
+
 // Mock Electron
 vi.mock('electron', () => ({
-  BrowserView: vi.fn().mockImplementation(() => ({
-    webContents: {
-      loadURL: vi.fn(),
-      executeJavaScript: vi.fn(),
-      on: vi.fn(),
-      getURL: vi.fn(),
-    },
-    setBounds: vi.fn(),
-    destroy: vi.fn(),
-  })),
+  BrowserView: vi.fn().mockImplementation(() => {
+    const mockView = {
+      webContents: {
+        loadURL: vi.fn(),
+        executeJavaScript: vi.fn(),
+        on: vi.fn(),
+        getURL: vi.fn(),
+      },
+      setBounds: vi.fn(),
+      destroy: vi.fn(),
+    };
+    return mockView;
+  }),
   session: {
     fromPartition: vi.fn().mockReturnValue({
       clearStorageData: vi.fn(),
@@ -36,12 +42,15 @@ describe('BrowserViewManager', () => {
   let mockMainWindow: any;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     mockMainWindow = {
       setBrowserView: vi.fn(),
+      addBrowserView: vi.fn(),
+      removeBrowserView: vi.fn(),
+      getBrowserViews: vi.fn().mockReturnValue([]),
       getBounds: vi.fn().mockReturnValue({ x: 0, y: 0, width: 1200, height: 800 }),
     };
     manager = new BrowserViewManager(mockMainWindow);
-    vi.clearAllMocks();
   });
 
   describe('createView', () => {
@@ -93,22 +102,33 @@ describe('BrowserViewManager', () => {
   });
 
   describe('showView', () => {
-    it('should set browser view on main window', () => {
+    it('should set view bounds to visible area', () => {
       const view = manager.createView('chatgpt');
       const bounds = { x: 0, y: 100, width: 800, height: 600 };
 
+      // Replace setBounds with spy after creation
+      const setBoundsSpy = vi.fn();
+      view.setBounds = setBoundsSpy;
+
       manager.showView('chatgpt', bounds);
 
-      expect(mockMainWindow.setBrowserView).toHaveBeenCalled();
+      // Issue #10: 이제 setBounds로 view를 보이게 함 (setBrowserView 대신)
+      expect(setBoundsSpy).toHaveBeenCalledWith(bounds);
     });
   });
 
   describe('hideAllViews', () => {
-    it('should remove browser view from main window', () => {
-      manager.createView('chatgpt');
+    it('should move views offscreen', () => {
+      const view = manager.createView('chatgpt');
+
+      // Replace setBounds with spy after creation
+      const setBoundsSpy = vi.fn();
+      view.setBounds = setBoundsSpy;
+
       manager.hideAllViews();
 
-      expect(mockMainWindow.setBrowserView).toHaveBeenCalledWith(null);
+      // Issue #10: 이제 화면 밖으로 이동 (setBrowserView(null) 대신)
+      expect(setBoundsSpy).toHaveBeenCalledWith({ x: -10000, y: -10000, width: 1920, height: 1080 });
     });
   });
 

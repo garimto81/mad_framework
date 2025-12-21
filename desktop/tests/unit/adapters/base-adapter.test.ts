@@ -80,8 +80,9 @@ describe('BaseLLMAdapter', () => {
       const gemini = new BaseLLMAdapter('gemini', mockWebContents as any);
 
       // Each provider has different primary selectors
+      // Issue #11: Claude의 primary selector가 2025-12 DOM 업데이트로 변경됨
       expect(chatgpt.selectorSets.inputTextarea.primary).toBe('#prompt-textarea');
-      expect(claude.selectorSets.inputTextarea.primary).toBe('[contenteditable="true"]');
+      expect(claude.selectorSets.inputTextarea.primary).toBe('textarea[data-testid="chat-input-ssr"]');
       expect(gemini.selectorSets.inputTextarea.primary).toBe('.ql-editor');
     });
   });

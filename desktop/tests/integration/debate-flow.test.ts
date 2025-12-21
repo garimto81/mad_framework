@@ -204,9 +204,14 @@ describe('Debate Flow Integration', () => {
         versionHistory: [],
       };
 
+      // getIncompleteElements is called:
+      // 1. L107 main loop (progress) - return element
+      // 2. L213 executeIteration (prompt building) - return element
+      // 3. L145 re-check - return empty (complete)
       mockRepository.getIncompleteElements
-        .mockResolvedValueOnce([incompleteElement])
-        .mockResolvedValueOnce([]);
+        .mockResolvedValueOnce([incompleteElement])  // L107 - progress
+        .mockResolvedValueOnce([incompleteElement])  // L213 - prompt building
+        .mockResolvedValueOnce([]);                  // L145 - complete
 
       await controller.start(defaultConfig);
 
@@ -269,13 +274,15 @@ describe('Debate Flow Integration', () => {
       };
 
       // getIncompleteElements is called:
-      // 1. in executeIteration (needs element)
-      // 2. in while loop check (needs element for cycle detection)
-      // 3. after cycle detection (empty to end loop)
+      // 1. L107 main loop (progress) - return element
+      // 2. L213 executeIteration (prompt building) - return element
+      // 3. L145 re-check - return element (for cycle detection)
+      // 4. L156 re-check after cycle detection - return empty (complete)
       mockRepository.getIncompleteElements
-        .mockResolvedValueOnce([elementWith3Versions])  // executeIteration
-        .mockResolvedValueOnce([elementWith3Versions])  // while loop check
-        .mockResolvedValueOnce([]);                     // after cycle detection
+        .mockResolvedValueOnce([elementWith3Versions])  // L107 - progress
+        .mockResolvedValueOnce([elementWith3Versions])  // L213 - prompt building
+        .mockResolvedValueOnce([elementWith3Versions])  // L145 - re-check (cycle detection)
+        .mockResolvedValueOnce([]);                     // L156 - after cycle detection
 
       mockRepository.getLast3Versions.mockResolvedValue(elementWith3Versions.versionHistory);
 
