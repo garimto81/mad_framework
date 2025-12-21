@@ -68,6 +68,13 @@ npm run dev:electron
 
 API 키 불필요. 웹 브라우저 자동화로 ChatGPT/Claude/Gemini 연동.
 
+## 필수 규칙
+
+**앱 실행 전 반드시 사용자 승인 필요**
+- `npm run dev:electron` 실행 전 사용자에게 승인 요청
+- 변경 사항 설명 후 승인 받기
+- 승인 없이 앱 실행 금지
+
 ## Testing
 
 ```bash
