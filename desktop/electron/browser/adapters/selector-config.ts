@@ -107,59 +107,74 @@ export function getSelectorSets(provider: LLMProvider): ProviderSelectors {
     },
     claude: {
       inputTextarea: {
-        primary: '[contenteditable="true"]',
+        // Issue #11: 2025-12 실제 DOM 분석 기반
+        primary: 'textarea[data-testid="chat-input-ssr"]',
         fallbacks: [
-          'div[contenteditable="true"]',
-          'fieldset[dir="auto"] [contenteditable]',
-          '[data-placeholder]',
+          '[data-testid="chat-input-ssr"]',
+          'div.tiptap.ProseMirror[contenteditable="true"]',
+          'div.ProseMirror[contenteditable="true"]',
+          '[contenteditable="true"]',
+          'fieldset textarea',
         ],
       },
       sendButton: {
-        primary: '[aria-label="Send message"]',
+        // Issue #11: 2025-12 실제 DOM - 한국어 우선
+        primary: 'button[aria-label="메시지 보내기"]',
         fallbacks: [
-          '[aria-label="Send Message"]',
+          'button[aria-label="Send message"]',
+          'button[aria-label="Send Message"]',
+          'button[aria-label*="보내기"]',
           'button[aria-label*="Send"]',
+          'fieldset button:not([aria-label*="Stop"]):not([aria-label*="Attach"]):not([aria-label*="첨부"])',
           '[data-testid="send-button"]',
-          'button[type="submit"]',
-          'fieldset button:not([aria-label*="Stop"])',
         ],
       },
       stopButton: {
-        primary: 'button[aria-label*="Stop"]',
+        // Issue #11: 2025-12 - Stop 버튼은 스트리밍 중에만 나타남
+        // Claude는 더 이상 Stop 버튼을 사용하지 않을 수 있음
+        primary: 'button[aria-label="응답 중지"]',
         fallbacks: [
-          '[aria-label="Stop Response"]',
-          '[aria-label="Stop response"]',
-          '[aria-label="Stop generating"]',
-          '[data-testid="stop-button"]',
+          'button[aria-label*="Stop"]',
           'button[aria-label*="stop"]',
+          'button[aria-label*="중지"]',
+          'button[aria-label*="취소"]',
+          '[data-testid="stop-button"]',
         ],
       },
       responseContainer: {
-        primary: '[data-is-streaming="false"]',
+        // Issue #11: 2025-12 실제 DOM 분석
+        primary: '[data-testid="conversation-turn-assistant"]',
         fallbacks: [
-          '[data-testid="assistant-message"]',
-          '.font-claude-message',
+          '[data-testid*="assistant"]',
+          '[data-testid*="message"]',
+          'div[class*="font-claude-message"]',
+          'article[class*="prose"]',
           '.prose:not([contenteditable])',
-          '[role="article"]',
+          'main article',
+          'div[class*="whitespace-pre-wrap"]',
         ],
       },
       typingIndicator: {
-        primary: '[data-is-streaming="true"]',
+        // Issue #11: 2025-12 - data-is-streaming 더 이상 사용되지 않음
+        // 대안: Send 버튼 disabled 상태, 콘텐츠 변화 감지
+        primary: 'button[aria-label="메시지 보내기"][disabled]',
         fallbacks: [
-          '[data-testid="streaming-response"]',
+          'button[aria-label="Send message"][disabled]',
+          'button[aria-label*="Send"][disabled]',
+          '[data-is-streaming="true"]',
           '.animate-pulse',
-          '.animate-spin',
-          '[data-testid*="loading"]',
-          '.cursor-blink',
+          '[class*="streaming"]',
         ],
       },
       loginCheck: {
-        primary: '[data-testid="user-menu"]',
+        // Issue #11: 2025-12 실제 DOM - user-menu-button
+        primary: '[data-testid="user-menu-button"]',
         fallbacks: [
+          '[data-testid="user-menu"]',
           'button[aria-label*="account"]',
           'button[aria-label*="Account"]',
           '[data-testid="menu-trigger"]',
-          '[contenteditable="true"]',
+          '[data-testid="chat-input-ssr"]',
         ],
       },
     },
