@@ -355,7 +355,37 @@ export class ChatGPTAdapter extends BaseLLMAdapter {
 
   async extractResponse(): Promise<string> {
     const result = await this.getResponse();
-    return result.data || '';
+    const raw = result.data || '';
+    // Issue #9: ChatGPT 코드블록의 "코드 복사" / "Copy code" 버튼 텍스트 제거
+    return this.stripCodeBlockButtonText(raw);
+  }
+
+  /**
+   * Issue #9: ChatGPT 코드블록에서 "코드 복사" / "Copy code" 버튼 텍스트 제거
+   *
+   * ChatGPT UI에서 코드블록 위에 표시되는 버튼 텍스트가 innerText에 포함됨:
+   * "json\n코드 복사\n{...}" → "{...}"
+   * "python\nCopy code\nprint(...)" → "print(...)"
+   */
+  private stripCodeBlockButtonText(text: string): string {
+    // 패턴: (언어명)\n(코드 복사|Copy code)\n(실제 코드)
+    // 언어명 목록: json, python, javascript, typescript, bash, shell, html, css 등
+    const langPattern = '(?:json|python|javascript|typescript|js|ts|bash|shell|html|css|c|cpp|java|go|rust|ruby|php|sql|yaml|xml|markdown|md|text|plaintext)';
+    const buttonPattern = '(?:코드 복사|Copy code|Copy)';
+
+    // 패턴 1: 언어명 + 버튼 텍스트 (줄바꿈으로 구분)
+    const pattern1 = new RegExp(`^${langPattern}\\n${buttonPattern}\\n`, 'gim');
+    let cleaned = text.replace(pattern1, '');
+
+    // 패턴 2: 버튼 텍스트만 있는 경우 (줄 시작에서)
+    const pattern2 = new RegExp(`^${buttonPattern}\\n`, 'gim');
+    cleaned = cleaned.replace(pattern2, '');
+
+    // 패턴 3: 줄 끝에 있는 경우 (덜 일반적)
+    const pattern3 = new RegExp(`\\n${buttonPattern}$`, 'gim');
+    cleaned = cleaned.replace(pattern3, '');
+
+    return cleaned.trim();
   }
 
   async isWriting(): Promise<boolean> {
