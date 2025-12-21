@@ -7,12 +7,13 @@
 import type {
   DebateConfig,
   DebateProgress,
+  DebateProgressExtended,
   DebateResponse,
   DebateResult,
+  DetailedStatus,
   ElementScoreUpdate,
   LLMLoginStatus,
   LLMProvider,
-  StreamChunk,
 } from '@shared/types';
 
 // Mock electronAPI for browser environment (E2E testing)
@@ -66,8 +67,13 @@ export const ipc = {
   },
 
   // Event subscription helpers
-  onDebateProgress: (callback: (progress: DebateProgress) => void): (() => void) => {
+  onDebateProgress: (callback: (progress: DebateProgressExtended) => void): (() => void) => {
     return electronAPI.on('debate:progress', callback as (...args: unknown[]) => void);
+  },
+
+  // Issue #13: Detailed status updates for progress monitoring
+  onStatusUpdate: (callback: (status: DetailedStatus) => void): (() => void) => {
+    return electronAPI.on('debate:status-update', callback as (...args: unknown[]) => void);
   },
 
   onDebateResponse: (callback: (response: DebateResponse) => void): (() => void) => {
@@ -78,7 +84,8 @@ export const ipc = {
     return electronAPI.on('debate:element-score', callback as (...args: unknown[]) => void);
   },
 
-  onStreamChunk: (callback: (chunk: StreamChunk) => void): (() => void) => {
+  // StreamChunk is not currently used - placeholder for future streaming support
+  onStreamChunk: (callback: (chunk: { content: string; provider: LLMProvider }) => void): (() => void) => {
     return electronAPI.on('debate:stream-chunk', callback as (...args: unknown[]) => void);
   },
 

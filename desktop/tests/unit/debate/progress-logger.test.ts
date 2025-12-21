@@ -9,7 +9,7 @@
 
 import { describe, it, expect, beforeEach, vi, type MockInstance } from 'vitest';
 import { ProgressLogger } from '../../../electron/debate/progress-logger';
-import type { LLMStatus } from '../../../shared/types';
+import type { LLMStatus, ProgressLog } from '../../../shared/types';
 
 describe('ProgressLogger', () => {
   let logger: ProgressLogger;
@@ -131,6 +131,166 @@ describe('ProgressLogger', () => {
 
       // Time zone dependent, but should have time format
       expect(formatted).toMatch(/\d{2}:\d{2}:\d{2}/);
+    });
+  });
+
+  // Issue #13: New tests for in-memory storage
+  describe('in-memory storage', () => {
+    it('should store logs in memory', () => {
+      const status: LLMStatus = {
+        provider: 'chatgpt',
+        isWriting: true,
+        tokenCount: 100,
+        timestamp: '2025-12-21T10:00:00.000Z',
+      };
+
+      logger.log(status);
+
+      const logs = logger.getLogs();
+      expect(logs.length).toBe(1);
+      expect(logs[0].type).toBe('status');
+      expect(logs[0].provider).toBe('chatgpt');
+    });
+
+    it('should return logs in reverse chronological order', () => {
+      const status1: LLMStatus = {
+        provider: 'chatgpt',
+        isWriting: true,
+        tokenCount: 100,
+        timestamp: '2025-12-21T10:00:00.000Z',
+      };
+      const status2: LLMStatus = {
+        provider: 'claude',
+        isWriting: false,
+        tokenCount: 200,
+        timestamp: '2025-12-21T10:00:01.000Z',
+      };
+
+      logger.log(status1);
+      logger.log(status2);
+
+      const logs = logger.getLogs();
+      expect(logs[0].provider).toBe('claude'); // Most recent first
+      expect(logs[1].provider).toBe('chatgpt');
+    });
+
+    it('should limit logs returned by limit parameter', () => {
+      for (let i = 0; i < 10; i++) {
+        logger.log({
+          provider: 'chatgpt',
+          isWriting: true,
+          tokenCount: i * 100,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const logs = logger.getLogs(5);
+      expect(logs.length).toBe(5);
+    });
+
+    it('should enforce maxLogs limit (FIFO)', () => {
+      const maxLogs = 1000;
+
+      // Add more than maxLogs entries
+      for (let i = 0; i < maxLogs + 100; i++) {
+        logger.log({
+          provider: 'chatgpt',
+          isWriting: true,
+          tokenCount: i,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const logs = logger.getLogs();
+      expect(logs.length).toBeLessThanOrEqual(maxLogs);
+    });
+
+    it('should clear all logs', () => {
+      logger.log({
+        provider: 'chatgpt',
+        isWriting: true,
+        tokenCount: 100,
+        timestamp: new Date().toISOString(),
+      });
+
+      logger.clear();
+
+      const logs = logger.getLogs();
+      expect(logs.length).toBe(0);
+    });
+  });
+
+  describe('logEntry for different types', () => {
+    it('should store score log with correct type', () => {
+      logger.logElementScore('보안', 85, false);
+
+      const logs = logger.getLogs();
+      expect(logs[0].type).toBe('score');
+      expect(logs[0].data).toEqual(
+        expect.objectContaining({
+          elementName: '보안',
+          score: 85,
+          isComplete: false,
+        })
+      );
+    });
+
+    it('should store cycle log with correct type', () => {
+      logger.logCycleDetected('성능');
+
+      const logs = logger.getLogs();
+      expect(logs[0].type).toBe('cycle');
+      expect(logs[0].data).toEqual(
+        expect.objectContaining({
+          elementName: '성능',
+        })
+      );
+    });
+
+    it('should store iteration log with correct type', () => {
+      logger.logIteration(5, 'claude');
+
+      const logs = logger.getLogs();
+      expect(logs[0].type).toBe('iteration');
+      expect(logs[0].provider).toBe('claude');
+      expect(logs[0].data).toEqual(
+        expect.objectContaining({
+          iteration: 5,
+        })
+      );
+    });
+
+    it('should store debate complete log', () => {
+      logger.logDebateComplete(10);
+
+      const logs = logger.getLogs();
+      expect(logs[0].type).toBe('complete');
+      expect(logs[0].data).toEqual(
+        expect.objectContaining({
+          totalIterations: 10,
+        })
+      );
+    });
+  });
+
+  describe('getLogsByType', () => {
+    it('should filter logs by type', () => {
+      logger.log({
+        provider: 'chatgpt',
+        isWriting: true,
+        tokenCount: 100,
+        timestamp: new Date().toISOString(),
+      });
+      logger.logElementScore('보안', 85, false);
+      logger.logCycleDetected('성능');
+
+      const scoreLogs = logger.getLogsByType('score');
+      expect(scoreLogs.length).toBe(1);
+      expect(scoreLogs[0].type).toBe('score');
+
+      const cycleLogs = logger.getLogsByType('cycle');
+      expect(cycleLogs.length).toBe(1);
+      expect(cycleLogs[0].type).toBe('cycle');
     });
   });
 });

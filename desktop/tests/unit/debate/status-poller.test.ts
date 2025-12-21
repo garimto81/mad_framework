@@ -9,7 +9,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StatusPoller } from '../../../electron/debate/status-poller';
-import type { LLMProvider, LLMStatus } from '../../../shared/types';
+import type { LLMProvider, LLMStatus, DetailedStatus } from '../../../shared/types';
 
 const createMockBrowserManager = () => ({
   getAdapter: vi.fn().mockReturnValue({
@@ -45,8 +45,8 @@ describe('StatusPoller', () => {
   });
 
   describe('constructor', () => {
-    it('should initialize with 5 second poll interval', () => {
-      expect(poller.pollInterval).toBe(5000);
+    it('should initialize with 500ms default poll interval', () => {
+      expect(poller.pollInterval).toBe(500);
     });
 
     it('should not be running initially', () => {
@@ -69,19 +69,19 @@ describe('StatusPoller', () => {
       expect(mockBrowserManager.getAdapter).toHaveBeenCalled();
     });
 
-    it('should poll every 5 seconds', async () => {
+    it('should poll every 500ms by default', async () => {
       poller.start();
 
       // First poll
-      await vi.advanceTimersByTimeAsync(5000);
+      await vi.advanceTimersByTimeAsync(500);
       expect(mockBrowserManager.getAdapter).toHaveBeenCalledTimes(3); // 3 providers
 
       // Second poll
-      await vi.advanceTimersByTimeAsync(5000);
+      await vi.advanceTimersByTimeAsync(500);
       expect(mockBrowserManager.getAdapter).toHaveBeenCalledTimes(6);
 
       // Third poll
-      await vi.advanceTimersByTimeAsync(5000);
+      await vi.advanceTimersByTimeAsync(500);
       expect(mockBrowserManager.getAdapter).toHaveBeenCalledTimes(9);
     });
 
@@ -159,7 +159,7 @@ describe('StatusPoller', () => {
   describe('logging', () => {
     it('should log status for each provider', async () => {
       poller.start();
-      await vi.advanceTimersByTimeAsync(5000);
+      await vi.advanceTimersByTimeAsync(500);
 
       expect(mockLogger.log).toHaveBeenCalledTimes(3); // 3 providers
     });
@@ -169,7 +169,7 @@ describe('StatusPoller', () => {
       mockBrowserManager.getAdapter().getTokenCount.mockResolvedValue(2456);
 
       poller.start();
-      await vi.advanceTimersByTimeAsync(5000);
+      await vi.advanceTimersByTimeAsync(500);
 
       expect(mockLogger.log).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -185,7 +185,7 @@ describe('StatusPoller', () => {
       poller.setActiveProviders(['chatgpt', 'claude']);
       poller.start();
 
-      await vi.advanceTimersByTimeAsync(5000);
+      await vi.advanceTimersByTimeAsync(500);
 
       const calls = mockBrowserManager.getAdapter.mock.calls.map(c => c[0]);
       expect(calls).toContain('chatgpt');
@@ -202,13 +202,104 @@ describe('StatusPoller', () => {
       // First poll - not writing
       mockBrowserManager.getAdapter().isWriting.mockResolvedValue(false);
       poller.start();
-      await vi.advanceTimersByTimeAsync(5000);
+      await vi.advanceTimersByTimeAsync(500);
 
       // Second poll - writing
       mockBrowserManager.getAdapter().isWriting.mockResolvedValue(true);
-      await vi.advanceTimersByTimeAsync(5000);
+      await vi.advanceTimersByTimeAsync(500);
 
       expect(callback).toHaveBeenCalled();
+    });
+  });
+
+  // Issue #13: New tests for progress monitoring feature
+  describe('configurable polling interval', () => {
+    it('should support setting custom poll interval', () => {
+      poller.setPollInterval(500);
+      expect(poller.pollInterval).toBe(500);
+    });
+
+    it('should poll at custom interval after setting', async () => {
+      poller.setPollInterval(500);
+      poller.start();
+
+      // After 500ms, should have polled once
+      await vi.advanceTimersByTimeAsync(500);
+      expect(mockBrowserManager.getAdapter).toHaveBeenCalledTimes(3); // 3 providers
+
+      // After another 500ms, should have polled twice
+      await vi.advanceTimersByTimeAsync(500);
+      expect(mockBrowserManager.getAdapter).toHaveBeenCalledTimes(6);
+    });
+
+    it('should enforce minimum interval of 100ms', () => {
+      poller.setPollInterval(50);
+      expect(poller.pollInterval).toBe(100);
+    });
+
+    it('should enforce maximum interval of 30000ms', () => {
+      poller.setPollInterval(60000);
+      expect(poller.pollInterval).toBe(30000);
+    });
+  });
+
+  describe('getDetailedStatus', () => {
+    it('should return DetailedStatus with responseProgress', async () => {
+      mockBrowserManager.getAdapter().isWriting.mockResolvedValue(true);
+      mockBrowserManager.getAdapter().getTokenCount.mockResolvedValue(500);
+
+      const status = await poller.getDetailedStatus('chatgpt');
+
+      expect(status).toEqual(
+        expect.objectContaining({
+          provider: 'chatgpt',
+          isWriting: true,
+          tokenCount: 500,
+          responseProgress: expect.any(Number),
+          timestamp: expect.any(String),
+        })
+      );
+    });
+
+    it('should estimate responseProgress based on token growth', async () => {
+      mockBrowserManager.getAdapter().isWriting.mockResolvedValue(true);
+
+      // First check - 100 tokens
+      mockBrowserManager.getAdapter().getTokenCount.mockResolvedValue(100);
+      await poller.getDetailedStatus('chatgpt');
+
+      // Second check - 300 tokens (growing)
+      mockBrowserManager.getAdapter().getTokenCount.mockResolvedValue(300);
+      const status = await poller.getDetailedStatus('chatgpt');
+
+      // Progress should be > 0 since tokens are growing
+      expect(status.responseProgress).toBeGreaterThan(0);
+    });
+
+    it('should set responseProgress to 100 when writing stops', async () => {
+      mockBrowserManager.getAdapter().isWriting.mockResolvedValue(false);
+      mockBrowserManager.getAdapter().getTokenCount.mockResolvedValue(1000);
+
+      const status = await poller.getDetailedStatus('chatgpt');
+
+      expect(status.responseProgress).toBe(100);
+    });
+  });
+
+  describe('onDetailedStatusUpdate callback', () => {
+    it('should call callback with detailed status on each poll', async () => {
+      const callback = vi.fn();
+      poller.onDetailedStatusUpdate(callback);
+
+      poller.start();
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: expect.any(String),
+          responseProgress: expect.any(Number),
+        })
+      );
     });
   });
 });

@@ -9,6 +9,7 @@ import { useDebateStore } from '../stores/debate-store';
 import { useLoginStore } from '../stores/login-store';
 import { LoginStatusBoard } from '../components/LoginStatusBoard';
 import { DebateConfigPanel } from '../components/DebateConfigPanel';
+import { DebateProgressBar } from '../components/DebateProgressBar';
 import { ElementScoreBoard } from '../components/ElementScoreBoard';
 import { IterationViewer } from '../components/IterationViewer';
 import { ResponseViewer } from '../components/ResponseViewer';
@@ -100,13 +101,18 @@ export function MainLayout() {
             </div>
           </div>
         ) : (
-          <div className="h-full grid grid-cols-12 gap-4 p-4">
-            {/* Left Sidebar: Status */}
-            <div className="col-span-3 space-y-4 overflow-y-auto">
-              <IterationViewer
-                progress={currentProgress}
-                isRunning={isRunning}
-              />
+          <div className="h-full flex flex-col p-4">
+            {/* Progress Bar */}
+            <DebateProgressBar />
+
+            {/* Main content grid */}
+            <div className="flex-1 grid grid-cols-12 gap-4 overflow-hidden">
+              {/* Left Sidebar: Status */}
+              <div className="col-span-3 space-y-4 overflow-y-auto">
+                <IterationViewer
+                  progress={currentProgress}
+                  isRunning={isRunning}
+                />
               <ElementScoreBoard
                 elements={elements}
                 threshold={session?.config.completionThreshold ?? 90}
@@ -160,6 +166,7 @@ export function MainLayout() {
                   ← 설정으로 돌아가기
                 </button>
               )}
+              </div>
             </div>
           </div>
         )}
