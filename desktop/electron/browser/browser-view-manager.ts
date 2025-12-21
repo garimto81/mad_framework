@@ -26,6 +26,9 @@ interface BrowserView {
 
 interface BrowserWindow {
   setBrowserView: (view: BrowserView | null) => void;
+  addBrowserView: (view: BrowserView) => void;
+  removeBrowserView: (view: BrowserView) => void;
+  getBrowserViews: () => BrowserView[];
   getBounds: () => Rectangle;
 }
 
@@ -35,11 +38,15 @@ const LLM_URLS: Record<LLMProvider, string> = {
   gemini: 'https://gemini.google.com',
 };
 
+// Issue #10: 화면 밖 위치 (view를 숨기되 렌더링은 유지)
+const OFFSCREEN_BOUNDS: Rectangle = { x: -10000, y: -10000, width: 1920, height: 1080 };
+
 export class BrowserViewManager {
   private views: Map<LLMProvider, BrowserView> = new Map();
   private adapters: Map<LLMProvider, BaseLLMAdapter> = new Map();
   private sessionManager: SessionManager;
   private mainWindow: BrowserWindow;
+  private activeProvider: LLMProvider | null = null;
 
   constructor(mainWindow: BrowserWindow) {
     this.mainWindow = mainWindow;
@@ -86,6 +93,15 @@ export class BrowserViewManager {
     this.views.set(provider, view);
     this.adapters.set(provider, adapter);
 
+    // Issue #10: addBrowserView로 추가하고 화면 밖에 배치 (렌더링 유지)
+    try {
+      this.mainWindow.addBrowserView(view);
+      view.setBounds(OFFSCREEN_BOUNDS);
+      console.log(`[BrowserViewManager] Added ${provider} view (offscreen)`);
+    } catch (e) {
+      console.log(`[BrowserViewManager] addBrowserView not available, using legacy mode`);
+    }
+
     return view;
   }
 
@@ -121,21 +137,58 @@ export class BrowserViewManager {
   showView(provider: LLMProvider, bounds: Rectangle): void {
     const view = this.views.get(provider);
     if (view) {
-      this.mainWindow.setBrowserView(view);
-      view.setBounds(bounds);
+      // Issue #10: 모든 view를 화면 밖으로 이동 후, 선택된 view만 화면 안으로
+      for (const [p, v] of this.views.entries()) {
+        if (p === provider) {
+          v.setBounds(bounds);
+          console.log(`[BrowserViewManager] Showing ${provider} view`);
+        } else {
+          v.setBounds(OFFSCREEN_BOUNDS);
+        }
+      }
+      this.activeProvider = provider;
     }
   }
 
   hideAllViews(): void {
-    this.mainWindow.setBrowserView(null);
+    // Issue #10: 모든 view를 화면 밖으로 이동 (제거하지 않음 - 렌더링 유지)
+    for (const [provider, view] of this.views.entries()) {
+      view.setBounds(OFFSCREEN_BOUNDS);
+      console.log(`[BrowserViewManager] Hiding ${provider} view (offscreen)`);
+    }
+    this.activeProvider = null;
+  }
+
+  // Issue #10: 특정 view만 숨기기
+  hideView(provider: LLMProvider): void {
+    const view = this.views.get(provider);
+    if (view) {
+      view.setBounds(OFFSCREEN_BOUNDS);
+      if (this.activeProvider === provider) {
+        this.activeProvider = null;
+      }
+    }
+  }
+
+  getActiveProvider(): LLMProvider | null {
+    return this.activeProvider;
   }
 
   destroyView(provider: LLMProvider): void {
     const view = this.views.get(provider);
     if (view) {
+      // Issue #10: removeBrowserView 호출 후 destroy
+      try {
+        this.mainWindow.removeBrowserView(view);
+      } catch (e) {
+        // Legacy mode
+      }
       view.destroy();
       this.views.delete(provider);
       this.adapters.delete(provider);
+      if (this.activeProvider === provider) {
+        this.activeProvider = null;
+      }
     }
   }
 

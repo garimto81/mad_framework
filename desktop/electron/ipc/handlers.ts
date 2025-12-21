@@ -25,10 +25,9 @@ let repository: InMemoryRepository | null = null;
 
 export function registerIpcHandlers(mainWindow: BrowserWindow) {
   // Initialize browser manager
-  browserManager = new BrowserViewManager(mainWindow as unknown as {
-    setBrowserView: (view: unknown) => void;
-    getBounds: () => { x: number; y: number; width: number; height: number };
-  });
+  // Issue #10: addBrowserView/removeBrowserView 추가
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  browserManager = new BrowserViewManager(mainWindow as any);
 
   // Create event emitter that forwards to renderer
   const eventEmitter = {
@@ -87,10 +86,17 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
       }
     }
 
-    // Hide all browser views - debate runs in background
-    // UI will show monitoring panel instead
-    console.log('[IPC] Hiding browser views - debate runs in background');
-    browserManager?.hideAllViews();
+    // Issue #9: Show first participant's view so user can see progress
+    // Instead of hiding all views, show the active debater
+    const firstParticipant = config.participants[0];
+    console.log(`[IPC] Showing browser view for first participant: ${firstParticipant}`);
+    const bounds = mainWindow.getBounds();
+    browserManager?.showView(firstParticipant, {
+      x: 0,
+      y: 50, // Leave space for header
+      width: bounds.width,
+      height: bounds.height - 50,
+    });
 
     // Start debate (runs in background)
     console.log('[IPC] Starting debate controller...');
