@@ -1,0 +1,27 @@
+{
+  "simple": {
+    "prompt": "안녕하세요. 간단한 테스트입니다. '테스트 성공'이라고 답해주세요.",
+    "expectedMinLength": 5,
+    "expectedMaxResponseTime": 30000
+  },
+  "korean": {
+    "prompt": "한글 입력 테스트입니다. 다음 문장을 그대로 반복해주세요: '가나다라마바사'",
+    "expectedMinLength": 7,
+    "expectedMaxResponseTime": 30000
+  },
+  "specialChars": {
+    "prompt": "특수문자 테스트: `코드`, '작은따옴표', \"큰따옴표\", 줄바꿈\n테스트",
+    "expectedMinLength": 10,
+    "expectedMaxResponseTime": 30000
+  },
+  "codeReview": {
+    "prompt": "다음 코드를 간단히 리뷰해주세요:\n```python\ndef hello():\n    print('world')\n```",
+    "expectedMinLength": 50,
+    "expectedMaxResponseTime": 60000
+  },
+  "longResponse": {
+    "prompt": "100단어 이상으로 프로그래밍의 장점에 대해 설명해주세요.",
+    "expectedMinLength": 200,
+    "expectedMaxResponseTime": 120000
+  }
+}
