@@ -69,6 +69,7 @@ Analyze the topic primarily through this lens while remaining open to other view
         Returns:
             DebateMessage with the agent's argument.
         """
+        assert self.provider is not None, "Debater requires a provider"
         # Build messages for LLM
         messages = self._build_prompt(state)
 

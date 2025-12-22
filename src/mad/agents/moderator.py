@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from mad.agents.base import AgentRole, BaseAgent
 from mad.core.state import DebateMessage, DebateState
@@ -65,6 +65,7 @@ You should recommend stopping the debate early if:
         Returns:
             DebateMessage with moderation decision.
         """
+        assert self.provider is not None, "Moderator requires a provider"
         messages = self._build_prompt(state)
 
         response = await self.provider.generate(
@@ -138,7 +139,7 @@ Ensure the JSON is valid."""
 
         return messages
 
-    def parse_moderation(self, content: str) -> dict:
+    def parse_moderation(self, content: str) -> dict[str, Any]:
         """Parse the moderator's assessment from response content.
 
         Args:
@@ -153,7 +154,8 @@ Ensure the JSON is valid."""
 
             if start != -1 and end > start:
                 json_str = content[start:end]
-                return json.loads(json_str)
+                result: dict[str, Any] = json.loads(json_str)
+                return result
         except json.JSONDecodeError:
             pass
 
@@ -167,7 +169,7 @@ Ensure the JSON is valid."""
             "quality_score": 0.5,
         }
 
-    def should_stop_early(self, moderation: dict) -> bool:
+    def should_stop_early(self, moderation: dict[str, Any]) -> bool:
         """Determine if debate should stop early based on moderation.
 
         Args:

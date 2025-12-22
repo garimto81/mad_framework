@@ -32,8 +32,8 @@ let electronApp: ElectronApplication;
 let mainWindow: Page;
 
 test.describe('ChatGPT Single Workflow E2E', () => {
-  // 직렬 실행 + 타임아웃 설정 (하나의 Electron 앱을 공유하므로 병렬 불가)
-  test.describe.configure({ mode: 'serial', timeout: 90000 });
+  // 타임아웃 설정 (각 테스트가 독립적으로 실행되므로 serial 제거)
+  test.describe.configure({ timeout: 120000 });
 
   test.beforeAll(async () => {
     // Electron 앱 시작 (GPT만 테스트)
@@ -190,6 +190,12 @@ test.describe('ChatGPT Single Workflow E2E', () => {
     });
 
     test('[GPT-SEND-02] 전송 후 버튼 비활성화 확인', async () => {
+      // 자체 메시지 전송
+      await mainWindow.evaluate(async () => {
+        await window.electronAPI.adapter.enterPrompt('chatgpt', 'isWriting 테스트');
+        await window.electronAPI.adapter.submitMessage('chatgpt');
+      });
+
       // 전송 직후 isWriting 상태 확인
       const isWriting = await mainWindow.evaluate(async () => {
         return await window.electronAPI.adapter.isWriting('chatgpt');
@@ -197,6 +203,11 @@ test.describe('ChatGPT Single Workflow E2E', () => {
 
       // 응답 생성 중이면 isWriting이 true여야 함
       expect(isWriting).toBe(true);
+
+      // 응답 완료 대기 (다음 테스트를 위해 정리)
+      await mainWindow.evaluate(async () => {
+        return await window.electronAPI.adapter.awaitResponse('chatgpt', 60000);
+      });
     });
   });
 
@@ -218,6 +229,13 @@ test.describe('ChatGPT Single Workflow E2E', () => {
     });
 
     test('[GPT-WAIT-02] 타이핑 완료 대기 (120초 내)', async () => {
+      // 자체 메시지 전송
+      await mainWindow.evaluate(async () => {
+        await window.electronAPI.adapter.enterPrompt('chatgpt', '응답 대기 테스트');
+        await window.electronAPI.adapter.submitMessage('chatgpt');
+      });
+
+      // 응답 완료 대기
       const result = await mainWindow.evaluate(async () => {
         return await window.electronAPI.adapter.awaitResponse('chatgpt', 120000);
       });
@@ -228,6 +246,14 @@ test.describe('ChatGPT Single Workflow E2E', () => {
 
   test.describe('Checklist: 응답 추출 (getResponse)', () => {
     test('[GPT-RESPONSE-01] 응답 셀렉터 성공', async () => {
+      // 자체 메시지 전송 및 응답 대기
+      await mainWindow.evaluate(async () => {
+        await window.electronAPI.adapter.enterPrompt('chatgpt', '응답 추출 테스트');
+        await window.electronAPI.adapter.submitMessage('chatgpt');
+        return await window.electronAPI.adapter.awaitResponse('chatgpt', 60000);
+      });
+
+      // 응답 추출 검증
       const result = await mainWindow.evaluate(async () => {
         return await window.electronAPI.adapter.getResponse('chatgpt');
       });
@@ -237,13 +263,23 @@ test.describe('ChatGPT Single Workflow E2E', () => {
     });
 
     test('[GPT-RESPONSE-02] 마지막 메시지만 추출', async () => {
+      const userMessage = '마지막 메시지 테스트 ' + Date.now();
+
+      // 자체 메시지 전송 및 응답 대기
+      await mainWindow.evaluate(async (msg: string) => {
+        await window.electronAPI.adapter.enterPrompt('chatgpt', msg);
+        await window.electronAPI.adapter.submitMessage('chatgpt');
+        return await window.electronAPI.adapter.awaitResponse('chatgpt', 60000);
+      }, userMessage);
+
+      // 응답 추출
       const result = await mainWindow.evaluate(async () => {
         return await window.electronAPI.adapter.getResponse('chatgpt');
       });
 
       expect(result.success).toBe(true);
-      // 응답에 이전 메시지가 포함되지 않아야 함
-      expect(result.data).not.toContain('테스트 메시지'); // 사용자 메시지
+      // 응답에 사용자 메시지가 포함되지 않아야 함
+      expect(result.data).not.toContain(userMessage);
     });
 
     test('[GPT-RESPONSE-03] 코드 복사 텍스트 제거 (Issue #9)', async () => {
@@ -291,9 +327,9 @@ test.describe('ChatGPT Single Workflow E2E', () => {
     });
 
     test('[GPT-PROGRESS-02] tokenCount 응답 길이 추적', async () => {
-      // 새 메시지 전송
+      // 자체 메시지 전송 (긴 응답을 유도)
       await mainWindow.evaluate(async () => {
-        await window.electronAPI.adapter.enterPrompt('chatgpt', '짧게 답해주세요: 1+1=?');
+        await window.electronAPI.adapter.enterPrompt('chatgpt', '50단어로 프로그래밍에 대해 설명해주세요.');
         return await window.electronAPI.adapter.submitMessage('chatgpt');
       });
 
@@ -310,9 +346,21 @@ test.describe('ChatGPT Single Workflow E2E', () => {
 
       // 카운트가 증가해야 함 (응답 생성 중)
       expect(counts[counts.length - 1]).toBeGreaterThanOrEqual(counts[0]);
+
+      // 응답 완료 대기 (정리)
+      await mainWindow.evaluate(async () => {
+        return await window.electronAPI.adapter.awaitResponse('chatgpt', 60000);
+      });
     });
 
     test('[GPT-PROGRESS-03] responseProgress 0-100% 계산', async () => {
+      // 자체 메시지 전송
+      await mainWindow.evaluate(async () => {
+        await window.electronAPI.adapter.enterPrompt('chatgpt', '진행률 테스트');
+        await window.electronAPI.adapter.submitMessage('chatgpt');
+      });
+
+      // 응답 생성 중 진행률 확인
       const progress = await mainWindow.evaluate(async () => {
         const tokenCount = await window.electronAPI.adapter.getTokenCount('chatgpt');
         const isWriting = await window.electronAPI.adapter.isWriting('chatgpt');
@@ -324,6 +372,11 @@ test.describe('ChatGPT Single Workflow E2E', () => {
 
       expect(progress.responseProgress).toBeGreaterThanOrEqual(0);
       expect(progress.responseProgress).toBeLessThanOrEqual(100);
+
+      // 응답 완료 대기 (정리)
+      await mainWindow.evaluate(async () => {
+        return await window.electronAPI.adapter.awaitResponse('chatgpt', 60000);
+      });
     });
   });
 

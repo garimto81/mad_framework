@@ -19,7 +19,7 @@ class BaseAgent(ABC):
     def __init__(
         self,
         agent_id: str,
-        provider: LLMProvider,
+        provider: LLMProvider | None,
         model: str,
         system_prompt: str | None = None,
         temperature: float = 0.7,
@@ -28,13 +28,13 @@ class BaseAgent(ABC):
 
         Args:
             agent_id: Unique identifier for this agent.
-            provider: LLM provider to use.
+            provider: LLM provider to use (can be None for optional agents).
             model: Model name to use.
             system_prompt: Optional system prompt override.
             temperature: Sampling temperature.
         """
         self.agent_id = agent_id
-        self.provider = provider
+        self.provider: LLMProvider | None = provider
         self.model = model
         self.temperature = temperature
         self._system_prompt = system_prompt
@@ -112,6 +112,7 @@ class BaseAgent(ABC):
         Returns:
             Formatted DebateMessage.
         """
+        assert self.provider is not None, "Provider required for creating messages"
         return create_message(
             agent_id=self.agent_id,
             agent_role=self.role,

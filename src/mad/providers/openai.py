@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import time
 from collections.abc import AsyncIterator
+from typing import Any
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from mad.providers.base import LLMProvider, ProviderResponse
@@ -25,7 +26,7 @@ OPENAI_PRICING = {
 class OpenAIProvider(LLMProvider):
     """OpenAI GPT provider using LangChain."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the OpenAI provider."""
         self._clients: dict[str, ChatOpenAI] = {}
 
@@ -47,9 +48,11 @@ class OpenAIProvider(LLMProvider):
             )
         return self._clients[cache_key]
 
-    def _convert_messages(self, messages: list[dict[str, str]], system: str | None = None) -> list:
+    def _convert_messages(
+        self, messages: list[dict[str, str]], system: str | None = None
+    ) -> list[BaseMessage]:
         """Convert dict messages to LangChain format."""
-        lc_messages = []
+        lc_messages: list[BaseMessage] = []
 
         if system:
             lc_messages.append(SystemMessage(content=system))
@@ -87,7 +90,7 @@ class OpenAIProvider(LLMProvider):
         latency_ms = (time.perf_counter() - start_time) * 1000
 
         # Extract token usage
-        usage = response.usage_metadata or {}
+        usage: dict[str, Any] = dict(response.usage_metadata) if response.usage_metadata else {}
         input_tokens = usage.get("input_tokens", 0)
         output_tokens = usage.get("output_tokens", 0)
 

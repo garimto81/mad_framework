@@ -27,17 +27,21 @@ const electronAPI = {
   // Adapter actions (E2E 테스트용)
   adapter: {
     checkLogin: (provider: LLMProvider) =>
-      ipcRenderer.invoke('adapter:check-login', provider),
-    prepareInput: (provider: LLMProvider, timeout: number) =>
-      ipcRenderer.invoke('adapter:prepare-input', provider, timeout),
+      ipcRenderer.invoke('adapter:checkLogin', provider),
+    prepareInput: (provider: LLMProvider, timeout?: number) =>
+      ipcRenderer.invoke('adapter:prepareInput', provider, timeout),
     enterPrompt: (provider: LLMProvider, prompt: string) =>
-      ipcRenderer.invoke('adapter:enter-prompt', provider, prompt),
+      ipcRenderer.invoke('adapter:enterPrompt', provider, prompt),
     submitMessage: (provider: LLMProvider) =>
-      ipcRenderer.invoke('adapter:submit-message', provider),
-    awaitResponse: (provider: LLMProvider, timeout: number) =>
-      ipcRenderer.invoke('adapter:await-response', provider, timeout),
+      ipcRenderer.invoke('adapter:submitMessage', provider),
+    awaitResponse: (provider: LLMProvider, timeout?: number) =>
+      ipcRenderer.invoke('adapter:awaitResponse', provider, timeout),
     getResponse: (provider: LLMProvider) =>
-      ipcRenderer.invoke('adapter:get-response', provider),
+      ipcRenderer.invoke('adapter:getResponse', provider),
+    isWriting: (provider: LLMProvider) =>
+      ipcRenderer.invoke('adapter:isWriting', provider),
+    getTokenCount: (provider: LLMProvider) =>
+      ipcRenderer.invoke('adapter:getTokenCount', provider),
   },
 
   // Event listeners (Main → Renderer)
@@ -54,6 +58,7 @@ const electronAPI = {
       'debate:error',
       'debate:status-update', // Issue #13: Detailed status updates
       'login:status-changed',
+      'browser:view-changed', // BrowserView 표시 상태 변경
     ];
 
     if (!validChannels.includes(channel)) {

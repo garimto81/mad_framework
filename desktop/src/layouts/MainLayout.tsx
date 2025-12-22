@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { useDebateStore } from '../stores/debate-store';
 import { useLoginStore } from '../stores/login-store';
+import { useBrowserStore } from '../stores/browser-store';
 import { LoginStatusBoard } from '../components/LoginStatusBoard';
 import { DebateConfigPanel } from '../components/DebateConfigPanel';
 import { DebateProgressBar } from '../components/DebateProgressBar';
@@ -33,8 +34,10 @@ export function MainLayout() {
     elements,
     responses,
     startDebate,
+    cancelDebate,
   } = useDebateStore();
-  const { activeLoginProvider, closeLoginWindow } = useLoginStore();
+  const { closeLoginWindow } = useLoginStore();
+  const { visibleView, viewMode, hideView } = useBrowserStore();
 
   const handleStartDebate = async (config: DebateConfig) => {
     await startDebate(config);
@@ -45,18 +48,32 @@ export function MainLayout() {
     setView('config');
   };
 
+  // BrowserView에서 메인으로 돌아가기
+  const handleBackToMain = async () => {
+    if (viewMode === 'debate' && isRunning) {
+      // 토론 중이면 취소
+      await cancelDebate();
+    }
+    await hideView();
+    // 로그인 모드였으면 로그인 상태도 정리
+    if (viewMode === 'login') {
+      await closeLoginWindow();
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gray-900">
       {/* Header */}
       <header className="h-14 flex items-center justify-between px-6 bg-gray-800/50 border-b border-gray-700 relative z-50">
         <div className="flex items-center gap-3">
-          {activeLoginProvider ? (
+          {visibleView ? (
             <>
               <span className="text-sm text-gray-400">
-                {PROVIDER_LABELS[activeLoginProvider]} 로그인 중
+                {PROVIDER_LABELS[visibleView]}{' '}
+                {viewMode === 'login' ? '로그인 중' : '토론 중'}
               </span>
               <button
-                onClick={closeLoginWindow}
+                onClick={handleBackToMain}
                 className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,7 +90,7 @@ export function MainLayout() {
           )}
         </div>
 
-        {view === 'debate' && !activeLoginProvider && (
+        {view === 'debate' && !visibleView && (
           <DebateControlPanel onStart={handleBack} />
         )}
       </header>

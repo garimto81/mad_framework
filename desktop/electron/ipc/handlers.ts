@@ -58,8 +58,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   );
 
   // Auto-create views and check login status on startup
-  const providers: LLMProvider[] = ['chatgpt', 'claude', 'gemini'];
-  log.info('Auto-creating browser views on startup...');
+  // 테스트 환경에서는 TEST_PROVIDER 환경변수로 특정 provider만 생성 가능
+  const testProvider = process.env.TEST_PROVIDER as LLMProvider | undefined;
+  const providers: LLMProvider[] = testProvider
+    ? [testProvider]
+    : ['chatgpt', 'claude', 'gemini'];
+  log.info('Auto-creating browser views on startup...', { testProvider, providers });
 
   for (const provider of providers) {
     browserManager.createView(provider);
@@ -101,9 +105,17 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     const bounds = mainWindow.getBounds();
     browserManager?.showView(firstParticipant, {
       x: 0,
-      y: 50, // Leave space for header
+      y: 56, // h-14 = 56px (Header 높이와 일치)
       width: bounds.width,
-      height: bounds.height - 50,
+      height: bounds.height - 56,
+    });
+
+    // Notify renderer that BrowserView is visible (for navigation)
+    console.log('[IPC] Emitting browser:view-changed event:', { provider: firstParticipant, visible: true, mode: 'debate' });
+    eventEmitter.emit('browser:view-changed', {
+      provider: firstParticipant,
+      visible: true,
+      mode: 'debate',
     });
 
     // Start debate (runs in background)
@@ -150,9 +162,17 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     const bounds = mainWindow.getBounds();
     browserManager.showView(provider, {
       x: 0,
-      y: 50, // Leave space for header
+      y: 56, // h-14 = 56px (Header 높이와 일치)
       width: bounds.width,
-      height: bounds.height - 50,
+      height: bounds.height - 56,
+    });
+
+    // Notify renderer that BrowserView is visible (for navigation)
+    console.log('[IPC] Emitting browser:view-changed event (login):', { provider, visible: true, mode: 'login' });
+    eventEmitter.emit('browser:view-changed', {
+      provider,
+      visible: true,
+      mode: 'login',
     });
 
     return { success: true };
@@ -164,6 +184,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     }
 
     browserManager.hideAllViews();
+
+    // Notify renderer that BrowserView is hidden
+    console.log('[IPC] Emitting browser:view-changed event (hide):', { provider: null, visible: false, mode: null });
+    eventEmitter.emit('browser:view-changed', {
+      provider: null,
+      visible: false,
+      mode: null,
+    });
+
     return { success: true };
   });
 
@@ -452,6 +481,96 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
       currentIteration: debateController.getCurrentIteration(),
       currentProvider: debateController.getCurrentProvider(),
     };
+  });
+
+  // === Adapter Handlers (E2E 테스트용) ===
+
+  ipcMain.handle('adapter:checkLogin', async (_event, provider: LLMProvider) => {
+    if (!browserManager) {
+      return { success: false, error: 'Browser manager not initialized' };
+    }
+    const adapter = browserManager.getAdapter(provider);
+    if (!adapter) {
+      return { success: false, error: `No adapter for ${provider}` };
+    }
+    return await adapter.checkLogin();
+  });
+
+  ipcMain.handle('adapter:prepareInput', async (_event, provider: LLMProvider, timeout?: number) => {
+    if (!browserManager) {
+      return { success: false, error: 'Browser manager not initialized' };
+    }
+    const adapter = browserManager.getAdapter(provider);
+    if (!adapter) {
+      return { success: false, error: `No adapter for ${provider}` };
+    }
+    return await adapter.prepareInput(timeout);
+  });
+
+  ipcMain.handle('adapter:enterPrompt', async (_event, provider: LLMProvider, prompt: string) => {
+    if (!browserManager) {
+      return { success: false, error: 'Browser manager not initialized' };
+    }
+    const adapter = browserManager.getAdapter(provider);
+    if (!adapter) {
+      return { success: false, error: `No adapter for ${provider}` };
+    }
+    return await adapter.enterPrompt(prompt);
+  });
+
+  ipcMain.handle('adapter:submitMessage', async (_event, provider: LLMProvider) => {
+    if (!browserManager) {
+      return { success: false, error: 'Browser manager not initialized' };
+    }
+    const adapter = browserManager.getAdapter(provider);
+    if (!adapter) {
+      return { success: false, error: `No adapter for ${provider}` };
+    }
+    return await adapter.submitMessage();
+  });
+
+  ipcMain.handle('adapter:awaitResponse', async (_event, provider: LLMProvider, timeout?: number) => {
+    if (!browserManager) {
+      return { success: false, error: 'Browser manager not initialized' };
+    }
+    const adapter = browserManager.getAdapter(provider);
+    if (!adapter) {
+      return { success: false, error: `No adapter for ${provider}` };
+    }
+    return await adapter.awaitResponse(timeout);
+  });
+
+  ipcMain.handle('adapter:getResponse', async (_event, provider: LLMProvider) => {
+    if (!browserManager) {
+      return { success: false, error: 'Browser manager not initialized' };
+    }
+    const adapter = browserManager.getAdapter(provider);
+    if (!adapter) {
+      return { success: false, error: `No adapter for ${provider}` };
+    }
+    return await adapter.getResponse();
+  });
+
+  ipcMain.handle('adapter:isWriting', async (_event, provider: LLMProvider) => {
+    if (!browserManager) {
+      return false;
+    }
+    const adapter = browserManager.getAdapter(provider);
+    if (!adapter) {
+      return false;
+    }
+    return await adapter.isWriting();
+  });
+
+  ipcMain.handle('adapter:getTokenCount', async (_event, provider: LLMProvider) => {
+    if (!browserManager) {
+      return 0;
+    }
+    const adapter = browserManager.getAdapter(provider);
+    if (!adapter) {
+      return 0;
+    }
+    return await adapter.getTokenCount();
   });
 }
 

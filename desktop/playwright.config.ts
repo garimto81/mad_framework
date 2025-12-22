@@ -7,7 +7,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
-  timeout: 30000,
+  timeout: 180000,  // 3분 (Electron 앱 시작 + 응답 대기)
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',

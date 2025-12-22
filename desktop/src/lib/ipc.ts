@@ -107,4 +107,10 @@ export const ipc = {
   ): (() => void) => {
     return electronAPI.on('login:status-changed', callback as (...args: unknown[]) => void);
   },
+
+  onBrowserViewChanged: (
+    callback: (data: { provider: LLMProvider | null; visible: boolean; mode: 'login' | 'debate' | null }) => void
+  ): (() => void) => {
+    return electronAPI.on('browser:view-changed', callback as (...args: unknown[]) => void);
+  },
 };
