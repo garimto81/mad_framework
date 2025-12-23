@@ -219,13 +219,62 @@ export class ChatGPTAdapter extends BaseLLMAdapter {
   async getResponse(): Promise<AdapterResult<string>> {
     console.log(`[chatgpt] getResponse called`);
 
-    // Wait for DOM to be fully rendered after response
-    await this.sleep(1500);
+    // Issue #26: Wait longer for DOM to be fully rendered after response (1500ms → 2500ms)
+    await this.sleep(2500);
 
     const script = `
       (() => {
         try {
-          const debug = { tried: [], found: [] };
+          const debug = { tried: [], found: [], extractionMethod: '' };
+
+          // Issue #26: 재귀적 텍스트 추출 함수
+          // ChatGPT UI 업데이트로 텍스트가 깊이 중첩된 자식 요소에 존재할 수 있음
+          function extractTextRecursively(element) {
+            if (!element) return '';
+
+            // 숨겨진 요소 제외
+            const style = window.getComputedStyle(element);
+            if (style.display === 'none' || style.visibility === 'hidden') {
+              return '';
+            }
+
+            // 버튼, 툴바 등 제외
+            const tagName = element.tagName?.toLowerCase();
+            if (['button', 'svg', 'script', 'style', 'nav', 'header'].includes(tagName)) {
+              return '';
+            }
+
+            // data-testid가 복사 버튼 등인 경우 제외
+            const testId = element.getAttribute?.('data-testid') || '';
+            if (testId.includes('copy') || testId.includes('button')) {
+              return '';
+            }
+
+            // 클래스가 복사 버튼 관련인 경우 제외
+            const className = element.className || '';
+            if (typeof className === 'string' && (className.includes('copy') || className.includes('toolbar'))) {
+              return '';
+            }
+
+            // 텍스트 노드인 경우
+            if (element.nodeType === Node.TEXT_NODE) {
+              return element.textContent || '';
+            }
+
+            // 자식 노드 순회
+            let text = '';
+            for (const child of element.childNodes) {
+              text += extractTextRecursively(child);
+            }
+
+            // 블록 요소 후 줄바꿈 추가
+            const blockElements = ['p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'br'];
+            if (blockElements.includes(tagName) && text.trim()) {
+              text += '\\n';
+            }
+
+            return text;
+          }
 
           // Try multiple selectors for ChatGPT responses (expanded list)
           const selectors = [
@@ -258,11 +307,42 @@ export class ChatGPTAdapter extends BaseLLMAdapter {
                 debug.found.push({ sel, count: messages.length });
                 // Get the last assistant message
                 const lastMessage = messages[messages.length - 1];
-                const content = lastMessage?.innerText || lastMessage?.textContent || '';
-                if (content.trim().length > 0) {
+
+                // Issue #26: 1차 시도 - innerText (가장 빠름)
+                let content = lastMessage?.innerText?.trim() || '';
+                if (content.length > 0) {
+                  debug.extractionMethod = 'innerText';
                   return {
                     success: true,
-                    content: content.trim(),
+                    content: content,
+                    selector: sel,
+                    count: messages.length,
+                    debug
+                  };
+                }
+
+                // Issue #26: 2차 시도 - textContent
+                content = lastMessage?.textContent?.trim() || '';
+                if (content.length > 0) {
+                  debug.extractionMethod = 'textContent';
+                  return {
+                    success: true,
+                    content: content,
+                    selector: sel,
+                    count: messages.length,
+                    debug
+                  };
+                }
+
+                // Issue #26: 3차 시도 - 재귀적 텍스트 추출
+                content = extractTextRecursively(lastMessage).trim();
+                // 중복 줄바꿈 정리
+                content = content.replace(/\\n{3,}/g, '\\n\\n');
+                if (content.length > 0) {
+                  debug.extractionMethod = 'recursive';
+                  return {
+                    success: true,
+                    content: content,
                     selector: sel,
                     count: messages.length,
                     debug
@@ -296,37 +376,49 @@ export class ChatGPTAdapter extends BaseLLMAdapter {
     `;
 
     try {
-      const result = await this.executeScript<{
-        success: boolean;
-        content: string;
-        error?: string;
-        selector?: string;
-        debug?: object;
-      }>(script, { success: false, content: '', error: 'script failed' });
+      // Issue #26: 콘텐츠가 없으면 재시도 (최대 3회)
+      const maxRetries = 3;
+      const retryDelay = 1000;
 
-      // Issue #9: 상세 디버그 로그 출력
-      console.log(`[chatgpt] getResponse result:`);
-      console.log(`  - success: ${result.success}`);
-      console.log(`  - content length: ${result.content?.length || 0}`);
-      console.log(`  - selector: ${result.selector || 'none'}`);
-      if (result.error) {
-        console.log(`  - error: ${result.error}`);
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const result = await this.executeScript<{
+          success: boolean;
+          content: string;
+          error?: string;
+          selector?: string;
+          debug?: object;
+        }>(script, { success: false, content: '', error: 'script failed' });
+
+        // Issue #9: 상세 디버그 로그 출력
+        console.log(`[chatgpt] getResponse result (attempt ${attempt}/${maxRetries}):`);
+        console.log(`  - success: ${result.success}`);
+        console.log(`  - content length: ${result.content?.length || 0}`);
+        console.log(`  - selector: ${result.selector || 'none'}`);
+        if (result.error) {
+          console.log(`  - error: ${result.error}`);
+        }
+
+        // Log detailed debug info
+        if (result.debug) {
+          console.log(`[chatgpt] DEBUG info:`);
+          console.log(JSON.stringify(result.debug, null, 2));
+        }
+
+        if (result.success && result.content) {
+          return this.success(result.content);
+        }
+
+        // Issue #26: 재시도 전 대기
+        if (attempt < maxRetries) {
+          console.log(`[chatgpt] Retrying in ${retryDelay}ms...`);
+          await this.sleep(retryDelay);
+        }
       }
 
-      // Log detailed debug info
-      if (result.debug) {
-        console.log(`[chatgpt] DEBUG info:`);
-        console.log(JSON.stringify(result.debug, null, 2));
-      }
-
-      if (!result.success || !result.content) {
-        return this.error('EXTRACT_FAILED', `ChatGPT getResponse failed: ${result.error}`, {
-          selector: this.selectors.responseContainer,
-          debug: result.debug,
-        });
-      }
-
-      return this.success(result.content);
+      // 모든 재시도 실패
+      return this.error('EXTRACT_FAILED', `ChatGPT getResponse failed after ${maxRetries} attempts`, {
+        selector: this.selectors.responseContainer,
+      });
     } catch (error) {
       return this.error('EXTRACT_FAILED', `ChatGPT getResponse exception: ${error}`);
     }

@@ -325,9 +325,9 @@ describe('GPT Message Send and Progress Monitoring', () => {
         selector: '[data-message-author-role="assistant"]',
       });
 
-      // getResponse (called by extractResponse) has 1500ms sleep
+      // Issue #26: getResponse now has 2500ms initial sleep
       const responsePromise = adapter.extractResponse();
-      await vi.advanceTimersByTimeAsync(1500);
+      await vi.advanceTimersByTimeAsync(2500);
       const response = await responsePromise;
 
       expect(response).toBe(responseContent);
@@ -340,9 +340,10 @@ describe('GPT Message Send and Progress Monitoring', () => {
         error: 'no messages found',
       });
 
-      // getResponse (called by extractResponse) has 1500ms sleep
+      // Issue #26: getResponse now has 2500ms initial sleep + 3 retries with 1000ms delay each
+      // Total: 2500 + (1000 * 2) = 4500ms (first try + 2 more retries before giving up on 3rd)
       const responsePromise = adapter.extractResponse();
-      await vi.advanceTimersByTimeAsync(1500);
+      await vi.advanceTimersByTimeAsync(4500);
       const response = await responsePromise;
 
       expect(response).toBe('');
@@ -418,7 +419,8 @@ describe('GPT Message Send and Progress Monitoring', () => {
       });
 
       const responsePromise = adapter.extractResponse();
-      await vi.advanceTimersByTimeAsync(1500); // getResponse has 1500ms sleep
+      // Issue #26: getResponse now has 2500ms initial sleep
+      await vi.advanceTimersByTimeAsync(2500);
       const response = await responsePromise;
       expect(response).toBe('테스트 메시지에 대한 GPT 응답입니다.');
     });

@@ -32,6 +32,22 @@ const electronAPI = {
     closeLoginWindow: () => ipcRenderer.invoke('login:close-window'),
   },
 
+  // Adapter actions (E2E 테스트용)
+  adapter: {
+    checkLogin: (provider: LLMProvider) =>
+      ipcRenderer.invoke('adapter:check-login', provider),
+    prepareInput: (provider: LLMProvider, timeout: number) =>
+      ipcRenderer.invoke('adapter:prepare-input', provider, timeout),
+    enterPrompt: (provider: LLMProvider, prompt: string) =>
+      ipcRenderer.invoke('adapter:enter-prompt', provider, prompt),
+    submitMessage: (provider: LLMProvider) =>
+      ipcRenderer.invoke('adapter:submit-message', provider),
+    awaitResponse: (provider: LLMProvider, timeout: number) =>
+      ipcRenderer.invoke('adapter:await-response', provider, timeout),
+    getResponse: (provider: LLMProvider) =>
+      ipcRenderer.invoke('adapter:get-response', provider),
+  },
+
   // Event listeners (Main → Renderer)
   on: (
     channel: string,
