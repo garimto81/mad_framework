@@ -39,7 +39,7 @@ test.describe('ChatGPT 10회 연속 메시지 테스트', () => {
   test.describe.configure({ timeout: 900000 });
 
   // beforeAll 타임아웃을 120초로 설정
-  test.beforeAll(async ({ }, testInfo) => {
+  test.beforeAll(async (_fixtures, testInfo) => {
     testInfo.setTimeout(120000);
     console.log('\n=== ChatGPT 10회 연속 메시지 테스트 시작 ===\n');
 

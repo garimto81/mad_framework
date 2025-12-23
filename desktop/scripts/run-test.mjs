@@ -1,3 +1,4 @@
+/* global console, process, window, setTimeout */
 /**
  * ChatGPT 10회 연속 테스트 스크립트
  * CDP를 통해 실행 중인 앱에 연결하여 테스트
