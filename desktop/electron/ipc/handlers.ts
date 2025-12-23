@@ -160,6 +160,74 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     return { success: true };
   });
 
+  // === Adapter Handlers (E2E 테스트용) ===
+
+  ipcMain.handle('adapter:check-login', async (_event, provider: LLMProvider) => {
+    if (!browserManager) {
+      return { success: false, error: { code: 'INIT_ERROR', message: 'Browser manager not initialized' } };
+    }
+    const adapter = browserManager.getAdapter(provider);
+    if (!adapter) {
+      return { success: false, error: { code: 'NO_ADAPTER', message: `No adapter for ${provider}` } };
+    }
+    return adapter.checkLogin();
+  });
+
+  ipcMain.handle('adapter:prepare-input', async (_event, provider: LLMProvider, timeout: number) => {
+    if (!browserManager) {
+      return { success: false, error: { code: 'INIT_ERROR', message: 'Browser manager not initialized' } };
+    }
+    const adapter = browserManager.getAdapter(provider);
+    if (!adapter) {
+      return { success: false, error: { code: 'NO_ADAPTER', message: `No adapter for ${provider}` } };
+    }
+    return adapter.prepareInput(timeout);
+  });
+
+  ipcMain.handle('adapter:enter-prompt', async (_event, provider: LLMProvider, prompt: string) => {
+    if (!browserManager) {
+      return { success: false, error: { code: 'INIT_ERROR', message: 'Browser manager not initialized' } };
+    }
+    const adapter = browserManager.getAdapter(provider);
+    if (!adapter) {
+      return { success: false, error: { code: 'NO_ADAPTER', message: `No adapter for ${provider}` } };
+    }
+    return adapter.enterPrompt(prompt);
+  });
+
+  ipcMain.handle('adapter:submit-message', async (_event, provider: LLMProvider) => {
+    if (!browserManager) {
+      return { success: false, error: { code: 'INIT_ERROR', message: 'Browser manager not initialized' } };
+    }
+    const adapter = browserManager.getAdapter(provider);
+    if (!adapter) {
+      return { success: false, error: { code: 'NO_ADAPTER', message: `No adapter for ${provider}` } };
+    }
+    return adapter.submitMessage();
+  });
+
+  ipcMain.handle('adapter:await-response', async (_event, provider: LLMProvider, timeout: number) => {
+    if (!browserManager) {
+      return { success: false, error: { code: 'INIT_ERROR', message: 'Browser manager not initialized' } };
+    }
+    const adapter = browserManager.getAdapter(provider);
+    if (!adapter) {
+      return { success: false, error: { code: 'NO_ADAPTER', message: `No adapter for ${provider}` } };
+    }
+    return adapter.awaitResponse(timeout);
+  });
+
+  ipcMain.handle('adapter:get-response', async (_event, provider: LLMProvider) => {
+    if (!browserManager) {
+      return { success: false, error: { code: 'INIT_ERROR', message: 'Browser manager not initialized' } };
+    }
+    const adapter = browserManager.getAdapter(provider);
+    if (!adapter) {
+      return { success: false, error: { code: 'NO_ADAPTER', message: `No adapter for ${provider}` } };
+    }
+    return adapter.getResponse();
+  });
+
   // Issue #11: 스트리밍 상태 캡처 (메시지 전송 후 DOM 변화 분석)
   ipcMain.handle('debug:capture-streaming', async (_event, provider: LLMProvider) => {
     if (!browserManager) {
