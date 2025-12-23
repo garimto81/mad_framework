@@ -142,9 +142,14 @@ export function getSelectorSets(provider: LLMProvider): ProviderSelectors {
         ],
       },
       responseContainer: {
-        // Issue #11: 2025-12 실제 DOM 분석
-        primary: '[data-testid="conversation-turn-assistant"]',
+        // Issue #28: 2025-12 실제 DOM 분석 - standard-markdown 기반
+        primary: 'div.standard-markdown',
         fallbacks: [
+          'p.font-claude-response-body',
+          '.font-claude-response-body',
+          '[class*="font-claude-response"]',
+          // 기존 fallback
+          '[data-testid="conversation-turn-assistant"]',
           '[data-testid*="assistant"]',
           '[data-testid*="message"]',
           'div[class*="font-claude-message"]',
