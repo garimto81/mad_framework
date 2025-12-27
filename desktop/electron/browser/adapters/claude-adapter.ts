@@ -372,7 +372,11 @@ export class ClaudeAdapter extends BaseLLMAdapter {
         debug.stopButton = stopFound;
 
         // 3. 응답 콘텐츠 캡처 (콘텐츠 변화 감지용)
+        // Issue #28: 새로운 셀렉터 추가
         const responseSelectors = [
+          'div.standard-markdown',
+          'p.font-claude-response-body',
+          '.font-claude-response-body',
           'main article',
           '.prose:not([contenteditable])',
           'div[class*="whitespace-pre-wrap"]',
@@ -467,13 +471,13 @@ export class ClaudeAdapter extends BaseLLMAdapter {
     // Wait for DOM to settle
     await this.sleep(1500);
 
-    // Issue #11: 2025-12 DOM - main 태그 하위에서 응답 찾기
+    // Issue #28: 2025-12 DOM - standard-markdown 기반 응답 추출
     const responseSelectors = [
-      // 2025-12 새로운 셀렉터 (main 기반)
-      'main div[class*="font-"]',
-      'main div[class*="text-"]',
-      'main [data-testid*="message"]',
-      'main [data-testid*="turn"]',
+      // Issue #28: 새로운 primary 셀렉터
+      'div.standard-markdown',
+      'p.font-claude-response-body',
+      '.font-claude-response-body',
+      '[class*="font-claude-response"]',
       // 기존 fallback
       ...this.selectorSets.responseContainer.fallbacks,
       // 추가 fallback
@@ -488,55 +492,40 @@ export class ClaudeAdapter extends BaseLLMAdapter {
           const debug = { tried: [], found: [], mainChildren: [] };
           const selectors = [${responseSelectors}];
 
-          // Issue #11: main 태그 하위 구조 분석
-          const main = document.querySelector('main');
-          if (main) {
-            // main의 직접 자식 중 텍스트가 있는 요소 찾기
-            const walker = document.createTreeWalker(
-              main,
-              NodeFilter.SHOW_ELEMENT,
-              {
-                acceptNode: function(node) {
-                  const text = node.textContent?.trim() || '';
-                  // 충분한 텍스트가 있고, 입력 영역이 아닌 경우
-                  if (text.length > 50 && !node.closest('[contenteditable]') && !node.closest('textarea')) {
-                    return NodeFilter.FILTER_ACCEPT;
-                  }
-                  return NodeFilter.FILTER_SKIP;
+          // Issue #28: 먼저 새로운 primary 셀렉터로 시도
+          const primarySelectors = [
+            'div.standard-markdown',
+            'p.font-claude-response-body',
+            '.font-claude-response-body',
+          ];
+
+          for (const sel of primarySelectors) {
+            debug.tried.push(sel);
+            try {
+              const messages = document.querySelectorAll(sel);
+              if (messages.length > 0) {
+                debug.found.push({ sel, count: messages.length });
+                // 마지막 응답 요소의 텍스트 추출
+                const lastMessage = messages[messages.length - 1];
+                const content = lastMessage?.innerText || lastMessage?.textContent || '';
+                if (content.trim() && content.length > 5) {
+                  return {
+                    success: true,
+                    content: content.trim(),
+                    selector: sel,
+                    count: messages.length,
+                    debug
+                  };
                 }
               }
-            );
-
-            let count = 0;
-            let lastValidNode = null;
-            let node;
-            while ((node = walker.nextNode()) && count < 20) {
-              debug.mainChildren.push({
-                tag: node.tagName,
-                classes: node.className?.toString?.()?.substring?.(0, 50),
-                textLen: node.textContent?.length || 0,
-              });
-              lastValidNode = node;
-              count++;
-            }
-
-            // 가장 긴 텍스트를 가진 요소 찾기
-            if (lastValidNode) {
-              const content = lastValidNode.innerText || lastValidNode.textContent || '';
-              if (content.trim().length > 10) {
-                return {
-                  success: true,
-                  content: content.trim(),
-                  selector: 'treeWalker',
-                  count: 1,
-                  debug
-                };
-              }
+            } catch (e) {
+              // Continue to next selector
             }
           }
 
-          // 기존 셀렉터 로직
+          // Fallback: 나머지 셀렉터 로직
           for (const sel of selectors) {
+            if (primarySelectors.includes(sel)) continue; // 이미 시도한 셀렉터 스킵
             debug.tried.push(sel);
             try {
               const messages = document.querySelectorAll(sel);
@@ -559,10 +548,56 @@ export class ClaudeAdapter extends BaseLLMAdapter {
             }
           }
 
+          // Fallback: TreeWalker로 main 하위 분석
+          const main = document.querySelector('main');
+          if (main) {
+            const walker = document.createTreeWalker(
+              main,
+              NodeFilter.SHOW_ELEMENT,
+              {
+                acceptNode: function(node) {
+                  const text = node.textContent?.trim() || '';
+                  if (text.length > 50 && !node.closest('[contenteditable]') && !node.closest('textarea') && !node.closest('fieldset')) {
+                    return NodeFilter.FILTER_ACCEPT;
+                  }
+                  return NodeFilter.FILTER_SKIP;
+                }
+              }
+            );
+
+            let count = 0;
+            let lastValidNode = null;
+            let node;
+            while ((node = walker.nextNode()) && count < 20) {
+              debug.mainChildren.push({
+                tag: node.tagName,
+                classes: node.className?.toString?.()?.substring?.(0, 50),
+                textLen: node.textContent?.length || 0,
+              });
+              lastValidNode = node;
+              count++;
+            }
+
+            if (lastValidNode) {
+              const content = lastValidNode.innerText || lastValidNode.textContent || '';
+              if (content.trim().length > 10) {
+                return {
+                  success: true,
+                  content: content.trim(),
+                  selector: 'treeWalker',
+                  count: 1,
+                  debug
+                };
+              }
+            }
+          }
+
           // Debug info
           debug.proseCount = document.querySelectorAll('.prose').length;
           debug.articleCount = document.querySelectorAll('article').length;
           debug.mainCount = document.querySelectorAll('main').length;
+          debug.standardMarkdownCount = document.querySelectorAll('div.standard-markdown').length;
+          debug.fontClaudeCount = document.querySelectorAll('.font-claude-response-body').length;
 
           return {
             success: false,
