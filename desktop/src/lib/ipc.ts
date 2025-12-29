@@ -6,7 +6,6 @@
 
 import type {
   DebateConfig,
-  DebateProgress,
   DebateProgressExtended,
   DebateResponse,
   DebateResult,

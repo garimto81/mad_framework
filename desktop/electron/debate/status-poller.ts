@@ -103,7 +103,6 @@ export class StatusPoller {
 
   async getDetailedStatus(provider: LLMProvider): Promise<DetailedStatus> {
     const status = await this.checkStatus(provider);
-    const previousTokenCount = this.previousTokenCounts.get(provider) || 0;
 
     // Store current token count for next comparison
     this.previousTokenCounts.set(provider, status.tokenCount);

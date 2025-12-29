@@ -6,10 +6,8 @@
 
 import type {
   DebateConfig,
-  DebateSession,
   DebateElement,
   LLMProvider,
-  DebateProgress,
   DebateProgressExtended,
   DebateResult,
   ElementScoreUpdate,

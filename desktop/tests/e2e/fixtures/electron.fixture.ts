@@ -26,7 +26,7 @@ export const test = base.extend<{
   mainWindow: Page;
 }>({
   // Electron 앱 fixture
-  electronApp: async ({}, use) => {
+  electronApp: async (_, use) => {
     const app = await electron.launch({
       args: [MAIN_JS_PATH, `--user-data-dir=${USER_DATA_DIR}`],
       env: {

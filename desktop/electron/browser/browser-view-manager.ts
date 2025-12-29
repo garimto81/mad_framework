@@ -54,7 +54,8 @@ export class BrowserViewManager {
   }
 
   createView(provider: LLMProvider): BrowserView {
-    const session = this.sessionManager.getSession(provider);
+    // Session is retrieved internally by electron via partition
+    this.sessionManager.getSession(provider);
 
     // Try to use electron BrowserView if available
     let view: BrowserView;
@@ -98,7 +99,7 @@ export class BrowserViewManager {
       this.mainWindow.addBrowserView(view);
       view.setBounds(OFFSCREEN_BOUNDS);
       console.log(`[BrowserViewManager] Added ${provider} view (offscreen)`);
-    } catch (e) {
+    } catch {
       console.log(`[BrowserViewManager] addBrowserView not available, using legacy mode`);
     }
 

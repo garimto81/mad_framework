@@ -116,7 +116,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     return { success: true };
   });
 
-  ipcMain.handle('debate:cancel', async (_event, sessionId: string) => {
+  ipcMain.handle('debate:cancel', async (_event, _sessionId: string) => {
     debateController?.cancel();
     return { success: true };
   });
