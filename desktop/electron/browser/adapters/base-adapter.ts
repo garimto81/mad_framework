@@ -25,6 +25,26 @@ import {
   MIN_RESPONSE_LENGTH,
 } from '../../constants';
 
+/**
+ * Issue #31: 응답 추출 옵션
+ */
+export interface ResponseExtractionOptions {
+  /** 시도할 셀렉터 목록 (기본: getResponseSelectors()) */
+  selectors?: string[];
+  /** 최소 응답 길이 (기본: 5) */
+  minLength?: number;
+  /** DOM 안정화 대기 시간 ms (기본: 1500) */
+  domSettleMs?: number;
+  /** 최대 재시도 횟수 (기본: 1) */
+  maxRetries?: number;
+  /** 재시도 간격 ms (기본: 1000) */
+  retryDelayMs?: number;
+  /** 재귀적 텍스트 추출 사용 여부 (기본: false) */
+  useRecursiveExtraction?: boolean;
+  /** TreeWalker 폴백 사용 여부 (기본: false) */
+  useTreeWalker?: boolean;
+}
+
 export class BaseLLMAdapter {
   readonly provider: LLMProvider;
   readonly baseUrl: string;
@@ -321,27 +341,240 @@ export class BaseLLMAdapter {
   }
 
   async getResponse(): Promise<AdapterResult<string>> {
-    // Issue #18: Find response container with fallback
-    const selector = await this.findElement(this.selectorSets.responseContainer);
-    if (!selector) {
-      console.warn(`[${this.provider}] No response container found`);
-      return this.success('');
-    }
+    // Issue #31: 기본 구현은 extractResponseFromSelectors 사용
+    return this.extractResponseFromSelectors();
+  }
+
+  /**
+   * Issue #31: 공통 응답 추출 로직
+   *
+   * 모든 어댑터가 공유하는 응답 추출 패턴을 통합
+   * - 셀렉터 목록 순회
+   * - 텍스트 추출 (innerText → textContent → recursive)
+   * - 최소 길이 검증
+   * - 재시도 로직
+   *
+   * @param options 추출 옵션 (셀렉터, 대기시간, 재시도 등)
+   */
+  protected async extractResponseFromSelectors(
+    options: ResponseExtractionOptions = {}
+  ): Promise<AdapterResult<string>> {
+    const {
+      selectors = this.getResponseSelectors(),
+      minLength = 5,
+      domSettleMs = 1500,
+      maxRetries = 1,
+      retryDelayMs = 1000,
+      useRecursiveExtraction = false,
+      useTreeWalker = false,
+    } = options;
+
+    console.log(`[${this.provider}] extractResponseFromSelectors called`);
+
+    // DOM 안정화 대기
+    await this.sleep(domSettleMs);
+
+    const selectorsJson = selectors.map(s => `'${s}'`).join(', ');
 
     const script = `
       (() => {
-        const messages = document.querySelectorAll('${selector}');
-        const lastMessage = messages[messages.length - 1];
-        return lastMessage?.innerText || '';
+        try {
+          const debug = { tried: [], found: [], extractionMethod: '' };
+          const selectors = [${selectorsJson}];
+          const minLength = ${minLength};
+          const useRecursive = ${useRecursiveExtraction};
+          const useTreeWalker = ${useTreeWalker};
+
+          // Issue #31: 재귀적 텍스트 추출 함수 (ChatGPT 스타일)
+          function extractTextRecursively(element) {
+            if (!element) return '';
+
+            const style = window.getComputedStyle(element);
+            if (style.display === 'none' || style.visibility === 'hidden') {
+              return '';
+            }
+
+            const tagName = element.tagName?.toLowerCase();
+            if (['button', 'svg', 'script', 'style', 'nav', 'header'].includes(tagName)) {
+              return '';
+            }
+
+            const testId = element.getAttribute?.('data-testid') || '';
+            if (testId.includes('copy') || testId.includes('button')) {
+              return '';
+            }
+
+            const className = element.className || '';
+            if (typeof className === 'string' && (className.includes('copy') || className.includes('toolbar'))) {
+              return '';
+            }
+
+            if (element.nodeType === Node.TEXT_NODE) {
+              return element.textContent || '';
+            }
+
+            let text = '';
+            for (const child of element.childNodes) {
+              text += extractTextRecursively(child);
+            }
+
+            const blockElements = ['p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'br'];
+            if (blockElements.includes(tagName) && text.trim()) {
+              text += '\\n';
+            }
+
+            return text;
+          }
+
+          // 셀렉터 순회하며 텍스트 추출
+          for (const sel of selectors) {
+            debug.tried.push(sel);
+            try {
+              const messages = document.querySelectorAll(sel);
+              if (messages.length > 0) {
+                debug.found.push({ sel, count: messages.length });
+                const lastMessage = messages[messages.length - 1];
+
+                // 1차: innerText
+                let content = lastMessage?.innerText?.trim() || '';
+                if (content.length >= minLength) {
+                  debug.extractionMethod = 'innerText';
+                  return { success: true, content, selector: sel, count: messages.length, debug };
+                }
+
+                // 2차: textContent
+                content = lastMessage?.textContent?.trim() || '';
+                if (content.length >= minLength) {
+                  debug.extractionMethod = 'textContent';
+                  return { success: true, content, selector: sel, count: messages.length, debug };
+                }
+
+                // 3차: 재귀 추출 (옵션)
+                if (useRecursive) {
+                  content = extractTextRecursively(lastMessage).trim().replace(/\\n{3,}/g, '\\n\\n');
+                  if (content.length >= minLength) {
+                    debug.extractionMethod = 'recursive';
+                    return { success: true, content, selector: sel, count: messages.length, debug };
+                  }
+                }
+              }
+            } catch (e) {
+              // Continue to next selector
+            }
+          }
+
+          // TreeWalker 폴백 (옵션)
+          if (useTreeWalker) {
+            const main = document.querySelector('main');
+            if (main) {
+              const walker = document.createTreeWalker(
+                main,
+                NodeFilter.SHOW_ELEMENT,
+                {
+                  acceptNode: function(node) {
+                    const text = node.textContent?.trim() || '';
+                    if (text.length > 50 && !node.closest('[contenteditable]') && !node.closest('textarea') && !node.closest('fieldset')) {
+                      return NodeFilter.FILTER_ACCEPT;
+                    }
+                    return NodeFilter.FILTER_SKIP;
+                  }
+                }
+              );
+
+              let count = 0;
+              let lastValidNode = null;
+              let node;
+              while ((node = walker.nextNode()) && count < 20) {
+                debug.mainChildren = debug.mainChildren || [];
+                debug.mainChildren.push({
+                  tag: node.tagName,
+                  classes: node.className?.toString?.()?.substring?.(0, 50),
+                  textLen: node.textContent?.length || 0,
+                });
+                lastValidNode = node;
+                count++;
+              }
+
+              if (lastValidNode) {
+                const content = lastValidNode.innerText || lastValidNode.textContent || '';
+                if (content.trim().length >= minLength) {
+                  debug.extractionMethod = 'treeWalker';
+                  return { success: true, content: content.trim(), selector: 'treeWalker', count: 1, debug };
+                }
+              }
+            }
+          }
+
+          // 디버그 정보 추가
+          debug.markdownCount = document.querySelectorAll('.markdown').length;
+          debug.proseCount = document.querySelectorAll('.prose').length;
+          debug.articleCount = document.querySelectorAll('article').length;
+          debug.mainCount = document.querySelectorAll('main').length;
+
+          return { success: false, content: '', error: 'no messages found', debug };
+        } catch (e) {
+          return { success: false, content: '', error: e.message };
+        }
       })()
     `;
 
-    try {
-      const content = await this.executeScript<string>(script, '');
-      return this.success(content);
-    } catch (error) {
-      return this.error('EXTRACT_FAILED', `Failed to extract response: ${error}`);
+    // 재시도 로직
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await this.executeScript<{
+          success: boolean;
+          content: string;
+          error?: string;
+          selector?: string;
+          count?: number;
+          debug?: Record<string, unknown>;
+        }>(script, { success: false, content: '', error: 'script failed' });
+
+        console.log(`[${this.provider}] extractResponse attempt ${attempt}/${maxRetries}:`);
+        console.log(`  - success: ${result.success}`);
+        console.log(`  - content length: ${result.content?.length || 0}`);
+        console.log(`  - selector: ${result.selector || 'none'}`);
+        if (result.error) {
+          console.log(`  - error: ${result.error}`);
+        }
+        if (result.debug) {
+          console.log(`  - debug:`, JSON.stringify(result.debug, null, 2));
+        }
+
+        if (result.success && result.content) {
+          return this.success(result.content);
+        }
+
+        // 재시도 전 대기
+        if (attempt < maxRetries) {
+          console.log(`[${this.provider}] Retrying in ${retryDelayMs}ms...`);
+          await this.sleep(retryDelayMs);
+        }
+      } catch (error) {
+        console.error(`[${this.provider}] extractResponse exception:`, error);
+      }
     }
+
+    return this.error('EXTRACT_FAILED', `Failed to extract response after ${maxRetries} attempts`);
+  }
+
+  /**
+   * Issue #31: 어댑터별 응답 셀렉터 목록 반환
+   * 하위 클래스에서 오버라이드하여 커스텀 셀렉터 제공
+   */
+  protected getResponseSelectors(): string[] {
+    return [
+      this.selectorSets.responseContainer.primary,
+      ...this.selectorSets.responseContainer.fallbacks,
+    ];
+  }
+
+  /**
+   * Issue #31: 응답 후처리 (하위 클래스에서 오버라이드)
+   * ChatGPT의 "코드 복사" 텍스트 제거 등
+   */
+  protected postProcessResponse(content: string): string {
+    return content;
   }
 
   // --- Legacy methods (backward compatibility) ---

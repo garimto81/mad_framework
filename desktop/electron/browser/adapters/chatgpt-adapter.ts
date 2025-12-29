@@ -216,212 +216,49 @@ export class ChatGPTAdapter extends BaseLLMAdapter {
     }
   }
 
+  /**
+   * Issue #31: 공통 extractResponseFromSelectors 사용
+   * ChatGPT 전용 셀렉터 + 재귀 추출 + 3회 재시도
+   */
   async getResponse(): Promise<AdapterResult<string>> {
     console.log(`[chatgpt] getResponse called`);
+    return this.extractResponseFromSelectors({
+      selectors: this.getResponseSelectors(),
+      minLength: 1, // ChatGPT는 짧은 응답도 허용
+      domSettleMs: 2500, // Issue #26: 더 긴 대기 시간
+      maxRetries: 3, // Issue #26: 재시도 로직
+      retryDelayMs: 1000,
+      useRecursiveExtraction: true, // ChatGPT는 재귀 추출 필요
+      useTreeWalker: false,
+    });
+  }
 
-    // Issue #26: Wait longer for DOM to be fully rendered after response (1500ms → 2500ms)
-    await this.sleep(2500);
-
-    const script = `
-      (() => {
-        try {
-          const debug = { tried: [], found: [], extractionMethod: '' };
-
-          // Issue #26: 재귀적 텍스트 추출 함수
-          // ChatGPT UI 업데이트로 텍스트가 깊이 중첩된 자식 요소에 존재할 수 있음
-          function extractTextRecursively(element) {
-            if (!element) return '';
-
-            // 숨겨진 요소 제외
-            const style = window.getComputedStyle(element);
-            if (style.display === 'none' || style.visibility === 'hidden') {
-              return '';
-            }
-
-            // 버튼, 툴바 등 제외
-            const tagName = element.tagName?.toLowerCase();
-            if (['button', 'svg', 'script', 'style', 'nav', 'header'].includes(tagName)) {
-              return '';
-            }
-
-            // data-testid가 복사 버튼 등인 경우 제외
-            const testId = element.getAttribute?.('data-testid') || '';
-            if (testId.includes('copy') || testId.includes('button')) {
-              return '';
-            }
-
-            // 클래스가 복사 버튼 관련인 경우 제외
-            const className = element.className || '';
-            if (typeof className === 'string' && (className.includes('copy') || className.includes('toolbar'))) {
-              return '';
-            }
-
-            // 텍스트 노드인 경우
-            if (element.nodeType === Node.TEXT_NODE) {
-              return element.textContent || '';
-            }
-
-            // 자식 노드 순회
-            let text = '';
-            for (const child of element.childNodes) {
-              text += extractTextRecursively(child);
-            }
-
-            // 블록 요소 후 줄바꿈 추가
-            const blockElements = ['p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'br'];
-            if (blockElements.includes(tagName) && text.trim()) {
-              text += '\\n';
-            }
-
-            return text;
-          }
-
-          // Try multiple selectors for ChatGPT responses (expanded list)
-          const selectors = [
-            // 2025 ChatGPT UI selectors (newest first)
-            '[data-testid^="conversation-turn-"] [class*="markdown"]',
-            'article[data-scroll-anchor="true"] .markdown',
-            'div[data-message-model-slug] .markdown',
-            '.group\\/conversation-turn .markdown',
-            // 2024-2025 ChatGPT UI selectors
-            'article[data-testid^="conversation-turn"] div.markdown',
-            'article[data-testid^="conversation-turn"] .prose',
-            '[data-testid^="conversation-turn-"] div.markdown',
-            'div[data-message-id] div.markdown',
-            'div[data-message-id] .prose',
-            // Legacy selectors
-            '[data-message-author-role="assistant"] .markdown',
-            '[data-message-author-role="assistant"]',
-            '.agent-turn .markdown',
-            '.prose.dark\\\\:prose-invert',
-            // Fallback: any markdown content
-            'main .markdown',
-            'main .prose'
-          ];
-
-          for (const sel of selectors) {
-            debug.tried.push(sel);
-            try {
-              const messages = document.querySelectorAll(sel);
-              if (messages.length > 0) {
-                debug.found.push({ sel, count: messages.length });
-                // Get the last assistant message
-                const lastMessage = messages[messages.length - 1];
-
-                // Issue #26: 1차 시도 - innerText (가장 빠름)
-                let content = lastMessage?.innerText?.trim() || '';
-                if (content.length > 0) {
-                  debug.extractionMethod = 'innerText';
-                  return {
-                    success: true,
-                    content: content,
-                    selector: sel,
-                    count: messages.length,
-                    debug
-                  };
-                }
-
-                // Issue #26: 2차 시도 - textContent
-                content = lastMessage?.textContent?.trim() || '';
-                if (content.length > 0) {
-                  debug.extractionMethod = 'textContent';
-                  return {
-                    success: true,
-                    content: content,
-                    selector: sel,
-                    count: messages.length,
-                    debug
-                  };
-                }
-
-                // Issue #26: 3차 시도 - 재귀적 텍스트 추출
-                content = extractTextRecursively(lastMessage).trim();
-                // 중복 줄바꿈 정리
-                content = content.replace(/\\n{3,}/g, '\\n\\n');
-                if (content.length > 0) {
-                  debug.extractionMethod = 'recursive';
-                  return {
-                    success: true,
-                    content: content,
-                    selector: sel,
-                    count: messages.length,
-                    debug
-                  };
-                }
-              }
-            } catch (e) {
-              // Continue to next selector
-            }
-          }
-
-          // Debug: check what elements exist
-          debug.articleCount = document.querySelectorAll('article').length;
-          debug.mainCount = document.querySelectorAll('main').length;
-          debug.markdownCount = document.querySelectorAll('.markdown').length;
-          debug.proseCount = document.querySelectorAll('.prose').length;
-          debug.conversationTurns = document.querySelectorAll('[data-testid^="conversation-turn"]').length;
-          debug.allDataTestIds = Array.from(document.querySelectorAll('[data-testid]'))
-            .map(el => el.getAttribute('data-testid')).slice(0, 30);
-
-          return {
-            success: false,
-            content: '',
-            error: 'no messages found',
-            debug
-          };
-        } catch (e) {
-          return { success: false, content: '', error: e.message };
-        }
-      })()
-    `;
-
-    try {
-      // Issue #26: 콘텐츠가 없으면 재시도 (최대 3회)
-      const maxRetries = 3;
-      const retryDelay = 1000;
-
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        const result = await this.executeScript<{
-          success: boolean;
-          content: string;
-          error?: string;
-          selector?: string;
-          debug?: object;
-        }>(script, { success: false, content: '', error: 'script failed' });
-
-        // Issue #9: 상세 디버그 로그 출력
-        console.log(`[chatgpt] getResponse result (attempt ${attempt}/${maxRetries}):`);
-        console.log(`  - success: ${result.success}`);
-        console.log(`  - content length: ${result.content?.length || 0}`);
-        console.log(`  - selector: ${result.selector || 'none'}`);
-        if (result.error) {
-          console.log(`  - error: ${result.error}`);
-        }
-
-        // Log detailed debug info
-        if (result.debug) {
-          console.log(`[chatgpt] DEBUG info:`);
-          console.log(JSON.stringify(result.debug, null, 2));
-        }
-
-        if (result.success && result.content) {
-          return this.success(result.content);
-        }
-
-        // Issue #26: 재시도 전 대기
-        if (attempt < maxRetries) {
-          console.log(`[chatgpt] Retrying in ${retryDelay}ms...`);
-          await this.sleep(retryDelay);
-        }
-      }
-
-      // 모든 재시도 실패
-      return this.error('EXTRACT_FAILED', `ChatGPT getResponse failed after ${maxRetries} attempts`, {
-        selector: this.selectors.responseContainer,
-      });
-    } catch (error) {
-      return this.error('EXTRACT_FAILED', `ChatGPT getResponse exception: ${error}`);
-    }
+  /**
+   * Issue #31: ChatGPT 전용 응답 셀렉터
+   * 2024-2025 UI 변경에 대응하는 셀렉터 목록
+   */
+  protected override getResponseSelectors(): string[] {
+    return [
+      // 2025 ChatGPT UI selectors (newest first)
+      '[data-testid^="conversation-turn-"] [class*="markdown"]',
+      'article[data-scroll-anchor="true"] .markdown',
+      'div[data-message-model-slug] .markdown',
+      '.group\\/conversation-turn .markdown',
+      // 2024-2025 ChatGPT UI selectors
+      'article[data-testid^="conversation-turn"] div.markdown',
+      'article[data-testid^="conversation-turn"] .prose',
+      '[data-testid^="conversation-turn-"] div.markdown',
+      'div[data-message-id] div.markdown',
+      'div[data-message-id] .prose',
+      // Legacy selectors
+      '[data-message-author-role="assistant"] .markdown',
+      '[data-message-author-role="assistant"]',
+      '.agent-turn .markdown',
+      '.prose.dark\\:prose-invert',
+      // Fallback: any markdown content
+      'main .markdown',
+      'main .prose',
+    ];
   }
 
   // --- Legacy methods (backward compatibility) ---
