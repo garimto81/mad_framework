@@ -4,7 +4,8 @@
  * Main ↔ Renderer 통신 핸들러
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, app } from 'electron';
+import * as path from 'path';
 import type {
   DebateConfig,
   DebateProgress,
@@ -18,10 +19,12 @@ import { BrowserViewManager } from '../browser/browser-view-manager';
 import { DebateController } from '../debate/debate-controller';
 import { CycleDetector } from '../debate/cycle-detector';
 import { InMemoryRepository } from '../debate/in-memory-repository';
+import { ProgressLogger } from '../debate/progress-logger';
 
 let browserManager: BrowserViewManager | null = null;
 let debateController: DebateController | null = null;
 let repository: InMemoryRepository | null = null;
+let progressLogger: ProgressLogger | null = null;
 
 export function registerIpcHandlers(mainWindow: BrowserWindow) {
   // Initialize browser manager
@@ -39,6 +42,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     on: () => {},
   };
 
+  // Initialize progress logger with file logging
+  progressLogger = new ProgressLogger();
+  const logDir = path.join(app.getAppPath(), 'logs');
+  progressLogger.enableFileLogging(logDir);
+
   // Initialize repository, cycle detector, and debate controller
   repository = new InMemoryRepository();
   const cycleDetector = new CycleDetector(browserManager);
@@ -46,7 +54,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     browserManager,
     repository,
     cycleDetector,
-    eventEmitter
+    eventEmitter,
+    progressLogger
   );
 
   // Auto-create views and check login status on startup
@@ -417,6 +426,34 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     } catch (error) {
       return { error: String(error) };
     }
+  });
+
+  // === Debug Handlers (Claude Code 모니터링용) ===
+
+  ipcMain.handle('debug:get-logs', async (_event, options?: { limit?: number; type?: string }) => {
+    if (!progressLogger) {
+      return { logs: [], error: 'Logger not initialized' };
+    }
+
+    const limit = options?.limit || 100;
+    const type = options?.type;
+
+    if (type) {
+      return { logs: progressLogger.getLogsByType(type as any).slice(0, limit) };
+    }
+    return { logs: progressLogger.getLogs(limit) };
+  });
+
+  ipcMain.handle('debug:get-debate-status', async () => {
+    if (!debateController) {
+      return { isRunning: false, error: 'Controller not initialized' };
+    }
+
+    return {
+      isRunning: debateController.isRunning(),
+      currentIteration: debateController.getCurrentIteration(),
+      currentProvider: debateController.getCurrentProvider(),
+    };
   });
 }
 

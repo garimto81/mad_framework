@@ -49,6 +49,8 @@ htmlcov/
 # Logs
 *.log
 logs/
+!logs/.gitkeep
+!**/logs/.gitkeep
 
 # Node.js (Desktop App)
 node_modules/

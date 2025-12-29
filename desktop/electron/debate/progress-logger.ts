@@ -1,10 +1,14 @@
 /**
  * Progress Logger
  *
- * 로그 메시지 출력 + 메모리 저장
+ * 로그 메시지 출력 + 메모리 저장 + 파일 출력
  * 형식: [시간] provider...상태...토큰수
+ *
+ * Issue #28 개선: Claude Code가 로그 파일로 앱 상태 모니터링 가능
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import type { LLMStatus, LLMProvider, ProgressLog } from '../../shared/types';
 
 const MAX_LOGS = 1000;
@@ -12,6 +16,36 @@ const MAX_LOGS = 1000;
 export class ProgressLogger {
   private logs: ProgressLog[] = [];
   private logIdCounter = 0;
+  private logFilePath: string | null = null;
+
+  /**
+   * 파일 로깅 활성화
+   * @param logDir 로그 디렉토리 경로
+   */
+  enableFileLogging(logDir: string): void {
+    try {
+      // 디렉토리 생성 (없으면)
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+      }
+
+      const logPath = path.join(logDir, 'debate-latest.jsonl');
+
+      // 기존 파일 백업
+      if (fs.existsSync(logPath)) {
+        const stats = fs.statSync(logPath);
+        const backupName = `debate-${stats.mtime.getTime()}.jsonl`;
+        const backupPath = path.join(logDir, backupName);
+        fs.renameSync(logPath, backupPath);
+        console.log(`[ProgressLogger] Backed up to: ${backupName}`);
+      }
+
+      this.logFilePath = logPath;
+      console.log(`[ProgressLogger] File logging enabled: ${logPath}`);
+    } catch (error) {
+      console.error('[ProgressLogger] Failed to enable file logging:', error);
+    }
+  }
 
   log(status: LLMStatus): void {
     const time = this.formatTime(status.timestamp);
@@ -127,6 +161,15 @@ export class ProgressLogger {
 
   private addLog(log: ProgressLog): void {
     this.logs.push(log);
+
+    // 파일 출력 (활성화된 경우)
+    if (this.logFilePath) {
+      try {
+        fs.appendFileSync(this.logFilePath, JSON.stringify(log) + '\n');
+      } catch (error) {
+        console.error('[ProgressLogger] File write failed:', error);
+      }
+    }
 
     // FIFO: Remove oldest logs if exceeding max
     if (this.logs.length > MAX_LOGS) {

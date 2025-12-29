@@ -16,6 +16,7 @@ import type {
 } from '../../shared/types';
 import type { BrowserViewManager } from '../browser/browser-view-manager';
 import type { CycleDetector } from './cycle-detector';
+import type { ProgressLogger } from './progress-logger';
 
 interface DebateRepository {
   create: (data: any) => Promise<string>;
@@ -52,17 +53,38 @@ const MAX_CONSECUTIVE_EMPTY_RESPONSES = 3;
 export class DebateController {
   private debateId: string | null = null;
   private cancelled: boolean = false;
+  private currentIteration: number = 0;
+  private currentProvider: LLMProvider | null = null;
 
   constructor(
     private browserManager: BrowserViewManager,
     private repository: DebateRepository,
     private cycleDetector: CycleDetector,
-    private eventEmitter: EventEmitter
+    private eventEmitter: EventEmitter,
+    private progressLogger?: ProgressLogger
   ) {}
+
+  // 상태 조회 메서드 (Claude Code 모니터링용)
+  isRunning(): boolean {
+    return !this.cancelled && this.debateId !== null;
+  }
+
+  getCurrentIteration(): number {
+    return this.currentIteration;
+  }
+
+  getCurrentProvider(): LLMProvider | null {
+    return this.currentProvider;
+  }
 
   async start(config: DebateConfig): Promise<void> {
     console.log('[Debate] Starting debate...');
     this.cancelled = false;
+    this.currentIteration = 0;
+    this.currentProvider = null;
+
+    // 로그 기록
+    this.progressLogger?.logDebateStart(config.topic);
 
     // Check login status
     console.log('[Debate] Checking login status...');
@@ -99,6 +121,13 @@ export class DebateController {
     while (!this.cancelled && iteration < MAX_ITERATIONS) {
       iteration++;
       const provider = config.participants[participantIndex % config.participants.length];
+
+      // 상태 업데이트 (Claude Code 모니터링용)
+      this.currentIteration = iteration;
+      this.currentProvider = provider;
+
+      // 로그 기록
+      this.progressLogger?.logIteration(iteration, provider);
 
       await this.repository.updateIteration(this.debateId, iteration);
 
@@ -174,11 +203,20 @@ export class DebateController {
 
     await this.repository.updateStatus(this.debateId, finalStatus);
 
+    // 로그 기록
+    this.progressLogger?.logDebateComplete(iteration);
+
+    // 이벤트 발행 (debateId 리셋 전에)
     this.eventEmitter.emit('debate:complete', {
       sessionId: this.debateId,
       totalIterations: iteration,
       completedAt: new Date().toISOString(),
     } as DebateResult);
+
+    // 상태 리셋
+    this.currentIteration = 0;
+    this.currentProvider = null;
+    this.debateId = null;
   }
 
   cancel(): void {
