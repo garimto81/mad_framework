@@ -10,13 +10,16 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { LLMStatus, LLMProvider, ProgressLog } from '../../shared/types';
+import { createScopedLogger } from '../utils/logger';
 
+const log = createScopedLogger('ProgressLogger');
 const MAX_LOGS = 1000;
 
 export class ProgressLogger {
   private logs: ProgressLog[] = [];
   private logIdCounter = 0;
   private logFilePath: string | null = null;
+  private logFileStream: fs.WriteStream | null = null;
 
   /**
    * 파일 로깅 활성화
@@ -37,13 +40,15 @@ export class ProgressLogger {
         const backupName = `debate-${stats.mtime.getTime()}.jsonl`;
         const backupPath = path.join(logDir, backupName);
         fs.renameSync(logPath, backupPath);
-        console.log(`[ProgressLogger] Backed up to: ${backupName}`);
+        log.info(`Backed up to: ${backupName}`);
       }
 
+      // WriteStream 생성
+      this.logFileStream = fs.createWriteStream(logPath, { flags: 'a' });
       this.logFilePath = logPath;
-      console.log(`[ProgressLogger] File logging enabled: ${logPath}`);
+      log.info(`File logging enabled: ${logPath}`);
     } catch (error) {
-      console.error('[ProgressLogger] Failed to enable file logging:', error);
+      log.error('Failed to enable file logging:', error);
     }
   }
 
@@ -52,7 +57,7 @@ export class ProgressLogger {
     const state = status.isWriting ? '진행중' : '완료';
     const tokens = status.tokenCount.toLocaleString();
 
-    console.log(`[${time}] ${status.provider}...${state}...${tokens}`);
+    log.info(`[${time}] ${status.provider}...${state}...${tokens}`);
 
     // Store in memory
     this.addLog({
@@ -71,7 +76,7 @@ export class ProgressLogger {
     const time = this.formatTime(new Date().toISOString());
     const completeMark = isComplete ? ' ✓ 완성' : '';
 
-    console.log(`[${time}] 요소[${elementName}] 점수: ${score}점${completeMark}`);
+    log.info(`[${time}] 요소[${elementName}] 점수: ${score}점${completeMark}`);
 
     this.addLog({
       id: this.generateId(),
@@ -87,7 +92,7 @@ export class ProgressLogger {
 
   logCycleDetected(elementName: string): void {
     const time = this.formatTime(new Date().toISOString());
-    console.log(`[${time}] 요소[${elementName}] 순환 감지 → 완성 처리`);
+    log.info(`[${time}] 요소[${elementName}] 순환 감지 → 완성 처리`);
 
     this.addLog({
       id: this.generateId(),
@@ -101,7 +106,7 @@ export class ProgressLogger {
 
   logIteration(iteration: number, provider: LLMProvider): void {
     const time = this.formatTime(new Date().toISOString());
-    console.log(`[${time}] === 반복 #${iteration} (${provider}) ===`);
+    log.info(`[${time}] === 반복 #${iteration} (${provider}) ===`);
 
     this.addLog({
       id: this.generateId(),
@@ -116,7 +121,7 @@ export class ProgressLogger {
 
   logDebateStart(topic: string): void {
     const time = this.formatTime(new Date().toISOString());
-    console.log(`[${time}] 토론 시작: ${topic}`);
+    log.info(`[${time}] 토론 시작: ${topic}`);
 
     this.addLog({
       id: this.generateId(),
@@ -131,7 +136,7 @@ export class ProgressLogger {
 
   logDebateComplete(totalIterations: number): void {
     const time = this.formatTime(new Date().toISOString());
-    console.log(`[${time}] 토론 완료 (총 ${totalIterations}회 반복)`);
+    log.info(`[${time}] 토론 완료 (총 ${totalIterations}회 반복)`);
 
     this.addLog({
       id: this.generateId(),
@@ -159,15 +164,27 @@ export class ProgressLogger {
     this.logIdCounter = 0;
   }
 
-  private addLog(log: ProgressLog): void {
-    this.logs.push(log);
+  /**
+   * 파일 스트림 닫기 (graceful shutdown용)
+   */
+  close(): void {
+    if (this.logFileStream) {
+      log.info('Closing file stream...');
+      this.logFileStream.end();
+      this.logFileStream = null;
+    }
+    this.logFilePath = null;
+  }
 
-    // 파일 출력 (활성화된 경우)
-    if (this.logFilePath) {
+  private addLog(logEntry: ProgressLog): void {
+    this.logs.push(logEntry);
+
+    // 파일 출력 (활성화된 경우 - WriteStream 사용)
+    if (this.logFileStream) {
       try {
-        fs.appendFileSync(this.logFilePath, JSON.stringify(log) + '\n');
+        this.logFileStream.write(JSON.stringify(logEntry) + '\n');
       } catch (error) {
-        console.error('[ProgressLogger] File write failed:', error);
+        log.error('File write failed:', error);
       }
     }
 

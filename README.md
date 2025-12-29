@@ -129,6 +129,10 @@ npm run dev:electron
 BrowserView를 통해 ChatGPT, Claude, Gemini 웹 UI와 자동 연동됩니다.
 웹 로그인만 하면 토론이 가능합니다.
 
+**로그 확인:**
+- 앱 로그: `%APPDATA%\mad-desktop\logs\mad-desktop.log`
+- 토론 로그: `desktop/logs/debate-latest.jsonl`
+
 ### Debate Config
 
 ```python

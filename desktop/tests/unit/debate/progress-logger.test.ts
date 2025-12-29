@@ -7,17 +7,31 @@
  * - 순환 감지 로그
  */
 
-import { describe, it, expect, beforeEach, vi, type MockInstance } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { LLMStatus } from '../../../shared/types';
+
+// Mock electron-log before importing ProgressLogger (vi.hoisted for correct hoisting)
+const { mockLogInfo, mockLogError } = vi.hoisted(() => ({
+  mockLogInfo: vi.fn(),
+  mockLogError: vi.fn(),
+}));
+
+vi.mock('../../../electron/utils/logger', () => ({
+  createScopedLogger: () => ({
+    info: mockLogInfo,
+    warn: vi.fn(),
+    error: mockLogError,
+    debug: vi.fn(),
+  }),
+}));
+
 import { ProgressLogger } from '../../../electron/debate/progress-logger';
-import type { LLMStatus, ProgressLog } from '../../../shared/types';
 
 describe('ProgressLogger', () => {
   let logger: ProgressLogger;
-  let consoleSpy: MockInstance;
 
   beforeEach(() => {
     logger = new ProgressLogger();
-    consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.clearAllMocks();
   });
 
@@ -32,8 +46,8 @@ describe('ProgressLogger', () => {
 
       logger.log(status);
 
-      expect(consoleSpy).toHaveBeenCalled();
-      const output = consoleSpy.mock.calls[0][0];
+      expect(mockLogInfo).toHaveBeenCalled();
+      const output = mockLogInfo.mock.calls[0][0];
       // Time format can include locale-specific markers like "오후"
       expect(output).toMatch(/\[.*\d{2}:\d{2}:\d{2}.*\]/);
       expect(output).toContain('chatgpt');
@@ -51,7 +65,7 @@ describe('ProgressLogger', () => {
 
       logger.log(status);
 
-      const output = consoleSpy.mock.calls[0][0];
+      const output = mockLogInfo.mock.calls[0][0];
       expect(output).toContain('완료');
     });
 
@@ -65,7 +79,7 @@ describe('ProgressLogger', () => {
 
       logger.log(status);
 
-      const output = consoleSpy.mock.calls[0][0];
+      const output = mockLogInfo.mock.calls[0][0];
       expect(output).toContain('진행중');
     });
 
@@ -79,7 +93,7 @@ describe('ProgressLogger', () => {
 
       logger.log(status);
 
-      const output = consoleSpy.mock.calls[0][0];
+      const output = mockLogInfo.mock.calls[0][0];
       expect(output).toMatch(/12,345,678|12\.345\.678/); // Locale dependent
     });
   });
@@ -88,7 +102,7 @@ describe('ProgressLogger', () => {
     it('should output element score without completion mark', () => {
       logger.logElementScore('보안', 85, false);
 
-      const output = consoleSpy.mock.calls[0][0];
+      const output = mockLogInfo.mock.calls[0][0];
       expect(output).toContain('요소[보안]');
       expect(output).toContain('점수: 85점');
       expect(output).not.toContain('✓');
@@ -97,7 +111,7 @@ describe('ProgressLogger', () => {
     it('should output element score with completion mark when complete', () => {
       logger.logElementScore('보안', 92, true);
 
-      const output = consoleSpy.mock.calls[0][0];
+      const output = mockLogInfo.mock.calls[0][0];
       expect(output).toContain('요소[보안]');
       expect(output).toContain('점수: 92점');
       expect(output).toContain('✓ 완성');
@@ -108,7 +122,7 @@ describe('ProgressLogger', () => {
     it('should output cycle detection message', () => {
       logger.logCycleDetected('성능');
 
-      const output = consoleSpy.mock.calls[0][0];
+      const output = mockLogInfo.mock.calls[0][0];
       expect(output).toContain('요소[성능]');
       expect(output).toContain('순환 감지');
       expect(output).toContain('완성 처리');
@@ -119,7 +133,7 @@ describe('ProgressLogger', () => {
     it('should output iteration header', () => {
       logger.logIteration(5, 'claude');
 
-      const output = consoleSpy.mock.calls[0][0];
+      const output = mockLogInfo.mock.calls[0][0];
       expect(output).toContain('반복 #5');
       expect(output).toContain('claude');
     });

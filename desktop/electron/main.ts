@@ -4,11 +4,23 @@
  * MAD Desktop 애플리케이션 진입점
  */
 
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import path from 'path';
-import { registerIpcHandlers } from './ipc/handlers';
+import { registerIpcHandlers, cleanupIpcHandlers } from './ipc/handlers';
+import { createScopedLogger } from './utils/logger';
+
+// userData 경로 override (테스트 환경 지원)
+// 환경변수 또는 CLI 인자로 커스텀 경로 설정 가능
+const customUserDataArg = process.argv.find((arg) => arg.startsWith('--user-data-dir='));
+const customUserData = process.env.MAD_USER_DATA_DIR || customUserDataArg?.split('=')[1];
+if (customUserData) {
+  app.setPath('userData', customUserData);
+}
+
+const log = createScopedLogger('Main');
 
 let mainWindow: BrowserWindow | null = null;
+let isQuitting = false;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -44,12 +56,57 @@ function createWindow() {
     mainWindow = null;
   });
 
+  // Windows/Linux: 창 닫기 시 앱 종료 트리거
+  mainWindow.on('close', () => {
+    if (process.platform !== 'darwin') {
+      app.quit();
+    }
+  });
+
   // Register IPC handlers
   registerIpcHandlers(mainWindow);
 }
 
+// Graceful shutdown handler
+async function gracefulShutdown(): Promise<void> {
+  if (isQuitting) return;
+  isQuitting = true;
+
+  log.info('Starting graceful shutdown...');
+
+  const shutdownTimeout = setTimeout(() => {
+    log.warn('Shutdown timeout reached (10s), forcing exit');
+    app.exit(1);
+  }, 10000);
+
+  try {
+    await cleanupIpcHandlers();
+    log.info('Cleanup completed');
+  } catch (err) {
+    log.error('Error during cleanup:', err);
+  } finally {
+    clearTimeout(shutdownTimeout);
+    log.info('Shutdown complete');
+  }
+}
+
 // App lifecycle
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  log.info('App ready, creating window...');
+  createWindow();
+});
+
+app.on('before-quit', async (event) => {
+  if (!isQuitting) {
+    event.preventDefault();
+    await gracefulShutdown();
+    app.quit();
+  }
+});
+
+app.on('will-quit', () => {
+  log.info('Application will quit');
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -61,6 +118,15 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  log.error('Uncaught exception:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  log.error('Unhandled rejection:', reason);
 });
 
 // Export for testing

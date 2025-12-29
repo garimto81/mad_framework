@@ -180,10 +180,21 @@ export class BrowserViewManager {
       // Issue #10: removeBrowserView 호출 후 destroy
       try {
         this.mainWindow.removeBrowserView(view);
-      } catch (e) {
+      } catch {
         // Legacy mode
       }
-      view.destroy();
+
+      // Electron 30+: destroy() deprecated, use webContents.close()
+      try {
+        if (view.webContents && typeof view.webContents.close === 'function') {
+          view.webContents.close();
+        } else if (typeof view.destroy === 'function') {
+          view.destroy();
+        }
+      } catch {
+        // View already destroyed or not available
+      }
+
       this.views.delete(provider);
       this.adapters.delete(provider);
       if (this.activeProvider === provider) {

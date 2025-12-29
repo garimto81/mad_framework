@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAD Framework - Session Recording UI Mockup</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+    }
+
+    .app-container {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      background: #16213e;
+      border-right: 1px solid #0f3460;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid #0f3460;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .sidebar-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e94560;
+    }
+
+    .session-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .session-item {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .session-item:hover {
+      background: #0f3460;
+    }
+
+    .session-item.active {
+      background: #0f3460;
+      border-left: 3px solid #e94560;
+    }
+
+    .session-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .session-preset {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: #e94560;
+      color: white;
+    }
+
+    .session-preset.qa {
+      background: #4ade80;
+    }
+
+    .session-preset.decision {
+      background: #fbbf24;
+      color: #1a1a2e;
+    }
+
+    .session-date {
+      font-size: 11px;
+      color: #888;
+    }
+
+    .session-topic {
+      font-size: 13px;
+      color: #ccc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .session-meta {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: #888;
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      padding: 16px 24px;
+      background: #16213e;
+      border-bottom: 1px solid #0f3460;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #e94560;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #d13a54;
+    }
+
+    .btn-secondary {
+      background: #0f3460;
+      color: #eee;
+    }
+
+    .btn-secondary:hover {
+      background: #1a4980;
+    }
+
+    .icon {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Session Detail */
+    .session-detail {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .session-info {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .info-card {
+      background: #16213e;
+      border-radius: 8px;
+      padding: 16px;
+      border: 1px solid #0f3460;
+    }
+
+    .info-label {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+
+    .info-value {
+      font-size: 20px;
+      font-weight: 600;
+      color: #e94560;
+    }
+
+    .info-value.green {
+      color: #4ade80;
+    }
+
+    .info-value.yellow {
+      color: #fbbf24;
+    }
+
+    /* Messages */
+    .messages-container {
+      background: #16213e;
+      border-radius: 8px;
+      border: 1px solid #0f3460;
+    }
+
+    .messages-header {
+      padding: 16px;
+      border-bottom: 1px solid #0f3460;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .messages-header h3 {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .iteration-tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .iteration-tab {
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      background: #0f3460;
+      color: #888;
+      border: none;
+    }
+
+    .iteration-tab.active {
+      background: #e94560;
+      color: white;
+    }
+
+    .messages-list {
+      padding: 16px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .message {
+      margin-bottom: 16px;
+      padding: 12px;
+      border-radius: 8px;
+      background: #1a1a2e;
+    }
+
+    .message-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .message-provider {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .provider-badge {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .provider-badge.chatgpt {
+      background: #10a37f;
+      color: white;
+    }
+
+    .provider-badge.claude {
+      background: #d97757;
+      color: white;
+    }
+
+    .provider-badge.gemini {
+      background: #4285f4;
+      color: white;
+    }
+
+    .message-role {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .message-time {
+      font-size: 11px;
+      color: #666;
+    }
+
+    .message-content {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #ccc;
+      white-space: pre-wrap;
+    }
+
+    .message-meta {
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: #666;
+    }
+
+    /* Elements Summary */
+    .elements-summary {
+      margin-top: 24px;
+      background: #16213e;
+      border-radius: 8px;
+      border: 1px solid #0f3460;
+      padding: 16px;
+    }
+
+    .elements-summary h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .elements-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .element-card {
+      background: #1a1a2e;
+      border-radius: 6px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .element-name {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+
+    .element-score {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .element-score.high {
+      color: #4ade80;
+    }
+
+    .element-score.medium {
+      color: #fbbf24;
+    }
+
+    .element-versions {
+      font-size: 11px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    /* Export Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal {
+      background: #16213e;
+      border-radius: 12px;
+      width: 400px;
+      border: 1px solid #0f3460;
+    }
+
+    .modal-header {
+      padding: 16px;
+      border-bottom: 1px solid #0f3460;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 20px;
+    }
+
+    .modal-body {
+      padding: 16px;
+    }
+
+    .export-options {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .export-option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: #1a1a2e;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .export-option:hover {
+      border-color: #e94560;
+    }
+
+    .export-option.selected {
+      border-color: #e94560;
+      background: #0f3460;
+    }
+
+    .export-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .export-icon.json {
+      background: #fbbf24;
+      color: #1a1a2e;
+    }
+
+    .export-icon.md {
+      background: #4ade80;
+      color: #1a1a2e;
+    }
+
+    .export-info h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .export-info p {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .modal-footer {
+      padding: 16px;
+      border-top: 1px solid #0f3460;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    /* Status Badge */
+    .status-badge {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .status-badge.completed {
+      background: #4ade80;
+      color: #1a1a2e;
+    }
+
+    .status-badge.active {
+      background: #fbbf24;
+      color: #1a1a2e;
+    }
+
+    .status-badge.cancelled {
+      background: #888;
+      color: #1a1a2e;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar: Session List -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <h2>Session History</h2>
+      </div>
+
+      <div class="session-list">
+        <!-- Active Session -->
+        <div class="session-item active">
+          <div class="session-item-header">
+            <span class="session-preset">code_review</span>
+            <span class="session-date">오늘 10:00</span>
+          </div>
+          <div class="session-topic">Python 비동기 코드 리뷰 요청</div>
+          <div class="session-meta">
+            <span>ChatGPT, Claude</span>
+            <span>5 iterations</span>
+          </div>
+        </div>
+
+        <!-- Past Sessions -->
+        <div class="session-item">
+          <div class="session-item-header">
+            <span class="session-preset qa">qa_accuracy</span>
+            <span class="session-date">어제 15:30</span>
+          </div>
+          <div class="session-topic">API 문서 정확성 검증</div>
+          <div class="session-meta">
+            <span>Claude, Gemini</span>
+            <span>3 iterations</span>
+          </div>
+        </div>
+
+        <div class="session-item">
+          <div class="session-item-header">
+            <span class="session-preset decision">decision</span>
+            <span class="session-date">12/21</span>
+          </div>
+          <div class="session-topic">마이크로서비스 vs 모놀리식 아키텍처</div>
+          <div class="session-meta">
+            <span>ChatGPT, Claude</span>
+            <span>4 iterations</span>
+          </div>
+        </div>
+
+        <div class="session-item">
+          <div class="session-item-header">
+            <span class="session-preset">code_review</span>
+            <span class="session-date">12/20</span>
+          </div>
+          <div class="session-topic">React 컴포넌트 성능 최적화</div>
+          <div class="session-meta">
+            <span>ChatGPT</span>
+            <span>2 iterations</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content: Session Detail -->
+    <div class="main-content">
+      <div class="header">
+        <div>
+          <h1>Python 비동기 코드 리뷰 요청</h1>
+          <span class="status-badge completed">Completed (consensus)</span>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-secondary">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            Delete
+          </button>
+          <button class="btn btn-primary">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Export
+          </button>
+        </div>
+      </div>
+
+      <div class="session-detail">
+        <!-- Session Info Cards -->
+        <div class="session-info">
+          <div class="info-card">
+            <div class="info-label">Total Tokens</div>
+            <div class="info-value">5,420</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Iterations</div>
+            <div class="info-value green">5</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Duration</div>
+            <div class="info-value yellow">15:32</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Messages</div>
+            <div class="info-value">12</div>
+          </div>
+        </div>
+
+        <!-- Messages List -->
+        <div class="messages-container">
+          <div class="messages-header">
+            <h3>Conversation Log</h3>
+            <div class="iteration-tabs">
+              <button class="iteration-tab active">All</button>
+              <button class="iteration-tab">1</button>
+              <button class="iteration-tab">2</button>
+              <button class="iteration-tab">3</button>
+              <button class="iteration-tab">4</button>
+              <button class="iteration-tab">5</button>
+            </div>
+          </div>
+
+          <div class="messages-list">
+            <!-- User Message -->
+            <div class="message">
+              <div class="message-header">
+                <div class="message-provider">
+                  <span class="provider-badge chatgpt">ChatGPT</span>
+                  <span class="message-role">User</span>
+                </div>
+                <span class="message-time">10:00:05</span>
+              </div>
+              <div class="message-content">다음 Python 비동기 코드를 리뷰해주세요. 특히 보안, 성능, 가독성, 유지보수성 측면에서 평가해주세요.
+
+```python
+async def fetch_data(url: str) -> dict:
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            return await response.json()
+```</div>
+              <div class="message-meta">
+                <span>Iteration 1</span>
+                <span>~120 tokens</span>
+              </div>
+            </div>
+
+            <!-- Assistant Response -->
+            <div class="message">
+              <div class="message-header">
+                <div class="message-provider">
+                  <span class="provider-badge chatgpt">ChatGPT</span>
+                  <span class="message-role">Assistant</span>
+                </div>
+                <span class="message-time">10:00:32</span>
+              </div>
+              <div class="message-content">코드를 분석했습니다. 각 요소별 평가입니다:
+
+**보안 (0.7)**
+- URL 검증 없이 외부 요청을 수행하고 있습니다
+- SSL 인증서 검증 옵션이 명시되지 않았습니다
+
+**성능 (0.8)**
+- 매 요청마다 새 ClientSession을 생성하는 것은 비효율적입니다
+- 커넥션 풀링을 활용하면 성능이 개선됩니다
+
+**가독성 (0.9)**
+- 타입 힌트가 잘 적용되어 있습니다
+- 함수명이 명확합니다
+
+**유지보수성 (0.75)**
+- 에러 핸들링이 없습니다
+- 재시도 로직이 필요합니다</div>
+              <div class="message-meta">
+                <span>Iteration 1</span>
+                <span>~450 tokens</span>
+              </div>
+            </div>
+
+            <!-- Claude Response -->
+            <div class="message">
+              <div class="message-header">
+                <div class="message-provider">
+                  <span class="provider-badge claude">Claude</span>
+                  <span class="message-role">Assistant</span>
+                </div>
+                <span class="message-time">10:01:15</span>
+              </div>
+              <div class="message-content">ChatGPT의 분석에 동의하며, 추가 의견을 제시합니다:
+
+**보안 (0.65)** - 더 낮게 평가
+- SSRF(Server-Side Request Forgery) 취약점 가능성이 있습니다
+- URL 화이트리스트 검증이 필수입니다
+
+**성능 (0.85)** - 약간 높게 평가
+- async/await 패턴을 올바르게 사용하고 있습니다
+- context manager 사용으로 리소스 관리가 양호합니다
+
+개선된 코드 제안:
+```python
+from urllib.parse import urlparse
+
+ALLOWED_HOSTS = {'api.example.com'}
+
+async def fetch_data(url: str, session: aiohttp.ClientSession) -> dict:
+    parsed = urlparse(url)
+    if parsed.netloc not in ALLOWED_HOSTS:
+        raise ValueError(f"Unauthorized host: {parsed.netloc}")
+
+    async with session.get(url, ssl=True) as response:
+        response.raise_for_status()
+        return await response.json()
+```</div>
+              <div class="message-meta">
+                <span>Iteration 1</span>
+                <span>~520 tokens</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Elements Summary -->
+        <div class="elements-summary">
+          <h3>Elements Score Summary</h3>
+          <div class="elements-grid">
+            <div class="element-card">
+              <div class="element-name">보안</div>
+              <div class="element-score high">0.85</div>
+              <div class="element-versions">3 versions</div>
+            </div>
+            <div class="element-card">
+              <div class="element-name">성능</div>
+              <div class="element-score high">0.90</div>
+              <div class="element-versions">2 versions</div>
+            </div>
+            <div class="element-card">
+              <div class="element-name">가독성</div>
+              <div class="element-score high">0.92</div>
+              <div class="element-versions">2 versions</div>
+            </div>
+            <div class="element-card">
+              <div class="element-name">유지보수성</div>
+              <div class="element-score medium">0.78</div>
+              <div class="element-versions">3 versions</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Modal (Hidden by default, shown for mockup) -->
+  <div class="modal-overlay" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Export Session</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="export-options">
+          <div class="export-option selected">
+            <div class="export-icon json">{ }</div>
+            <div class="export-info">
+              <h4>JSON Format</h4>
+              <p>Structured data for programmatic processing</p>
+            </div>
+          </div>
+          <div class="export-option">
+            <div class="export-icon md">MD</div>
+            <div class="export-info">
+              <h4>Markdown Format</h4>
+              <p>Human-readable document format</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary">Cancel</button>
+        <button class="btn btn-primary">Export</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -18,6 +18,20 @@ import { ProgressLogger } from '../../electron/debate/progress-logger';
 import { CycleDetector } from '../../electron/debate/cycle-detector';
 import type { DebateConfig, LLMProvider } from '../../shared/types';
 
+// Mock electron-log (hoisted)
+const { mockLogInfo } = vi.hoisted(() => ({
+  mockLogInfo: vi.fn(),
+}));
+
+vi.mock('../../electron/utils/logger', () => ({
+  createScopedLogger: () => ({
+    info: mockLogInfo,
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  }),
+}));
+
 // Mock Electron
 vi.mock('electron', () => ({
   BrowserView: vi.fn().mockImplementation(() => ({
@@ -324,14 +338,14 @@ describe('Debate Flow Integration', () => {
       vi.spyOn(adapter, 'isWriting').mockResolvedValue(true);
       vi.spyOn(adapter, 'getTokenCount').mockResolvedValue(2456);
 
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      mockLogInfo.mockClear();
 
       statusPoller.setActiveProviders(['chatgpt']);
       statusPoller.start();
 
       await vi.advanceTimersByTimeAsync(5000);
 
-      const output = consoleSpy.mock.calls.find(call =>
+      const output = mockLogInfo.mock.calls.find((call: string[]) =>
         call[0].includes('chatgpt')
       );
 

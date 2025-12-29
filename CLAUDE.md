@@ -23,6 +23,9 @@ uv sync --all-extras
 # 개별 테스트 (권장)
 pytest tests/unit/test_config.py -v
 
+# 전체 테스트
+pytest tests/ -v
+
 # Lint + Format
 ruff check src/ --fix && ruff format src/
 
@@ -42,6 +45,11 @@ npm run dev:electron
 npm run test:run           # Unit (Vitest)
 npm run test:e2e           # E2E (Playwright)
 npm run test:e2e:headed    # E2E with browser visible
+npm run test:e2e:ui        # E2E Playwright UI mode
+
+# 빌드
+npm run build              # Full build
+npm run build:win          # Windows build
 
 # Lint
 npm run lint
@@ -73,9 +81,11 @@ MAD(config) → _create_debaters() → create_debate_graph() → graph.ainvoke()
 
 ```
 electron/
-├── main.ts                 # Electron main process
+├── main.ts                 # Electron main process (graceful shutdown)
 ├── preload.ts              # Context bridge
-├── ipc/handlers.ts         # IPC handlers
+├── ipc/handlers.ts         # IPC handlers + cleanup
+├── utils/
+│   └── logger.ts           # electron-log 래퍼
 ├── browser/
 │   ├── browser-view-manager.ts   # BrowserView 관리
 │   ├── session-manager.ts        # 세션/쿠키 관리
@@ -86,6 +96,7 @@ electron/
 │       └── gemini-adapter.ts     # Gemini DOM 자동화
 └── debate/
     ├── debate-controller.ts      # 토론 진행 컨트롤러
+    ├── progress-logger.ts        # 토론 로그 (JSONL)
     └── status-poller.ts          # 응답 상태 폴링
 
 src/
@@ -93,6 +104,10 @@ src/
 ├── stores/                 # Zustand 상태 관리
 └── components/             # UI 컴포넌트
 ```
+
+**로그 파일 위치:**
+- 앱 로그: `%APPDATA%\mad-desktop\logs\mad-desktop.log`
+- 토론 로그: `desktop/logs/debate-latest.jsonl`
 
 **Adapter 공통 인터페이스:**
 ```typescript
@@ -108,6 +123,21 @@ enterPrompt() → submitMessage() → awaitResponse() → getResponse()
 - **Selector Fallback**: DOM 셀렉터 실패 시 fallback 체인 (`selector-config.ts`)
 - **State accumulation**: LangGraph `add_messages` reducer
 - **Early stopping**: Moderator `consensus_threshold` 체크
+- **Graceful shutdown**: `before-quit` → cleanup → `app.quit()` (10초 타임아웃)
+- **Circuit Breaker**: `MAX_ITERATIONS=100`, `MAX_CONSECUTIVE_EMPTY_RESPONSES=3`
+- **Cost Tracking**: 토큰 사용량 및 비용 추적 (`utils/cost.py`)
+
+## Desktop State Management
+
+| Store | 파일 | 역할 |
+|-------|------|------|
+| `useDebateStore` | `stores/debate-store.ts` | 토론 상태, 진행률, 결과 |
+| `useLoginStore` | `stores/login-store.ts` | Provider별 로그인 상태 |
+
+**IPC 이벤트:**
+- `debate:start` - 토론 시작
+- `login:status-changed` - 로그인 상태 변경
+- `status-update`, `progress`, `complete`, `error` - 토론 진행 이벤트
 
 ## 필수 규칙
 
@@ -136,6 +166,20 @@ Fixtures (`conftest.py`): `sample_topic`, `sample_context`, `sample_code`
 npm run test:run                      # Unit
 npm run test:e2e -- tests/e2e/x.spec.ts  # 개별 E2E
 ```
+
+**테스트 구조:**
+- `tests/unit/` - Adapter 단위 테스트 (Vitest)
+- `tests/integration/` - Provider별 메시지 진행 테스트
+- `tests/e2e/` - Playwright E2E 테스트
+- `tests/e2e/stress/` - 연속 메시지 스트레스 테스트
+
+## Environment Variables
+
+Python (`MADConfig` 환경 변수):
+- `MAD_DEFAULT_PROVIDER` - 기본 provider (default: "anthropic")
+- `MAD_DEFAULT_MODEL` - 기본 모델 (default: "claude-sonnet-4-20250514")
+- `MAD_MAX_ROUNDS` - 최대 라운드 (default: 3)
+- `MAD_LOG_LEVEL` - 로그 레벨 (default: "INFO")
 
 ## References
 

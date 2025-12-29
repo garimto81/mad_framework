@@ -8,11 +8,6 @@ import { ipcMain, BrowserWindow, app } from 'electron';
 import * as path from 'path';
 import type {
   DebateConfig,
-  DebateProgress,
-  DebateResponse,
-  DebateResult,
-  ElementScoreUpdate,
-  LLMLoginStatus,
   LLMProvider,
 } from '../../shared/types';
 import { BrowserViewManager } from '../browser/browser-view-manager';
@@ -20,6 +15,9 @@ import { DebateController } from '../debate/debate-controller';
 import { CycleDetector } from '../debate/cycle-detector';
 import { InMemoryRepository } from '../debate/in-memory-repository';
 import { ProgressLogger } from '../debate/progress-logger';
+import { createScopedLogger } from '../utils/logger';
+
+const log = createScopedLogger('IPC');
 
 let browserManager: BrowserViewManager | null = null;
 let debateController: DebateController | null = null;
@@ -60,7 +58,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
 
   // Auto-create views and check login status on startup
   const providers: LLMProvider[] = ['chatgpt', 'claude', 'gemini'];
-  console.log('[IPC] Auto-creating browser views on startup...');
+  log.info('Auto-creating browser views on startup...');
 
   for (const provider of providers) {
     browserManager.createView(provider);
@@ -68,38 +66,37 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
 
   // Wait for pages to load, then check login status
   setTimeout(async () => {
-    console.log('[IPC] Auto-checking login status...');
+    log.info('Auto-checking login status...');
     const status = await browserManager!.checkLoginStatus();
-    console.log('[IPC] Auto-check result:', status);
+    log.info('Auto-check result:', status);
     eventEmitter.emit('login:status-changed', status);
-
   }, 5000); // Wait 5 seconds for pages to load
 
   // === Debate Handlers ===
 
   ipcMain.handle('debate:start', async (_event, config: DebateConfig) => {
-    console.log('[IPC] debate:start called', config);
+    log.info('debate:start called', config);
 
     if (!debateController) {
       throw new Error('Debate controller not initialized');
     }
 
     // Create browser views for participants
-    console.log('[IPC] Creating browser views...');
+    log.info('Creating browser views...');
     const providers: LLMProvider[] = [...config.participants, config.judgeProvider];
     for (const provider of new Set(providers)) {
       if (!browserManager?.getView(provider)) {
-        console.log(`[IPC] Creating view for ${provider}`);
+        log.info(`Creating view for ${provider}`);
         browserManager?.createView(provider);
       } else {
-        console.log(`[IPC] View already exists for ${provider}`);
+        log.debug(`View already exists for ${provider}`);
       }
     }
 
     // Issue #9: Show first participant's view so user can see progress
     // Instead of hiding all views, show the active debater
     const firstParticipant = config.participants[0];
-    console.log(`[IPC] Showing browser view for first participant: ${firstParticipant}`);
+    log.info(`Showing browser view for first participant: ${firstParticipant}`);
     const bounds = mainWindow.getBounds();
     browserManager?.showView(firstParticipant, {
       x: 0,
@@ -109,13 +106,13 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     });
 
     // Start debate (runs in background)
-    console.log('[IPC] Starting debate controller...');
+    log.info('Starting debate controller...');
     debateController.start(config).catch((error) => {
-      console.error('[Debate Error]', error);
+      log.error('Debate Error:', error);
       eventEmitter.emit('debate:error', { error: String(error) });
     });
 
-    console.log('[IPC] debate:start returning success');
+    log.info('debate:start returning success');
     return { success: true };
   });
 
@@ -254,7 +251,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     }
 
     // 1. 테스트 메시지 전송
-    console.log(`[DEBUG] Sending test message to ${provider}...`);
+    log.debug(`Sending test message to ${provider}...`);
     await adapter.enterPrompt('Say "Hello" and nothing else.');
     await new Promise(r => setTimeout(r, 500));
     await adapter.submitMessage();
@@ -327,7 +324,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
       `);
 
       captures.push(snapshot);
-      console.log(`[DEBUG] Capture ${i + 1}:`, JSON.stringify(snapshot, null, 2));
+      log.debug(`Capture ${i + 1}:`, JSON.stringify(snapshot, null, 2));
     }
 
     return { captures };
@@ -421,7 +418,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
 
     try {
       const result = await webContents.executeJavaScript(script);
-      console.log('[DEBUG] DOM Snapshot for', provider, JSON.stringify(result, null, 2));
+      log.debug(`DOM Snapshot for ${provider}:`, JSON.stringify(result, null, 2));
       return result;
     } catch (error) {
       return { error: String(error) };
@@ -458,22 +455,61 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
 }
 
 // Cleanup on app quit
-export function cleanupIpcHandlers() {
+export async function cleanupIpcHandlers(): Promise<void> {
+  log.info('Starting IPC cleanup...');
+
   // 1. 진행 중인 토론 취소
   if (debateController) {
+    log.info('Cancelling debate...');
     debateController.cancel();
     debateController = null;
   }
 
   // 2. BrowserView 정리
   if (browserManager) {
+    log.info('Destroying browser views...');
     browserManager.destroyAllViews();
     browserManager = null;
   }
 
   // 3. Repository 정리
   if (repository) {
+    log.info('Clearing repository...');
     repository.clear();
     repository = null;
   }
+
+  // 4. ProgressLogger 파일 스트림 정리
+  if (progressLogger) {
+    log.info('Closing progress logger...');
+    progressLogger.close();
+    progressLogger = null;
+  }
+
+  // 5. IPC 핸들러 제거
+  log.info('Removing IPC handlers...');
+  const handlers = [
+    'debate:start',
+    'debate:cancel',
+    'debate:get-status',
+    'login:check-status',
+    'login:open-window',
+    'login:close-window',
+    'adapter:check-login',
+    'adapter:prepare-input',
+    'adapter:enter-prompt',
+    'adapter:submit-message',
+    'adapter:await-response',
+    'adapter:get-response',
+    'debug:capture-streaming',
+    'debug:dom-snapshot',
+    'debug:get-logs',
+    'debug:get-debate-status',
+  ];
+
+  for (const handler of handlers) {
+    ipcMain.removeHandler(handler);
+  }
+
+  log.info('IPC cleanup completed');
 }
