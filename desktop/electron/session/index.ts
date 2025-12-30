@@ -7,3 +7,4 @@
 export * from './types';
 export * from './session-recorder';
 export * from './exporters/json-exporter';
+export * from './exporters/markdown-exporter';

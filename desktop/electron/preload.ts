@@ -44,6 +44,19 @@ const electronAPI = {
       ipcRenderer.invoke('adapter:getTokenCount', provider),
   },
 
+  // Session actions (Issue #25)
+  session: {
+    list: () => ipcRenderer.invoke('session:list'),
+    get: (sessionId: string) => ipcRenderer.invoke('session:get', sessionId),
+    getCurrent: () => ipcRenderer.invoke('session:get-current'),
+    exportJson: (sessionId: string, outputPath?: string) =>
+      ipcRenderer.invoke('session:export-json', sessionId, outputPath),
+    exportMarkdown: (sessionId: string, outputPath?: string) =>
+      ipcRenderer.invoke('session:export-markdown', sessionId, outputPath),
+    delete: (sessionId: string) => ipcRenderer.invoke('session:delete', sessionId),
+    clear: () => ipcRenderer.invoke('session:clear'),
+  },
+
   // Event listeners (Main → Renderer)
   on: (
     channel: string,
@@ -57,6 +70,8 @@ const electronAPI = {
       'debate:complete',
       'debate:error',
       'debate:status-update', // Issue #13: Detailed status updates
+      'debate:started', // Issue #34: Session started
+      'debate:state-changed', // Issue #34: State snapshot
       'login:status-changed',
       'browser:view-changed', // BrowserView 표시 상태 변경
     ];
