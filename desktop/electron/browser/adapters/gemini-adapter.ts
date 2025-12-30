@@ -174,67 +174,35 @@ export class GeminiAdapter extends BaseLLMAdapter {
     return result.writing;
   }
 
-  // Issue #33: getResponse 강화 - 다중 셀렉터 fallback
+  /**
+   * Issue #31: 공통 extractResponseFromSelectors 사용
+   * Gemini 전용 셀렉터로 기본 추출
+   */
   async getResponse(): Promise<AdapterResult<string>> {
     console.log(`[gemini] getResponse called`);
+    return this.extractResponseFromSelectors({
+      selectors: this.getResponseSelectors(),
+      minLength: 10,
+      domSettleMs: 1500,
+      maxRetries: 1,
+      useRecursiveExtraction: false,
+      useTreeWalker: false,
+    });
+  }
 
-    // Wait for DOM to settle
-    await this.sleep(1500);
-
-    const script = `
-      (() => {
-        const selectors = [
-          '.response-container',
-          '.model-response',
-          '[data-content-type="response"]',
-          '.message-content',
-          'model-response .content',
-          '.markdown-content',
-          '[role="article"]'
-        ];
-
-        const debug = { tried: [], found: [] };
-
-        for (const sel of selectors) {
-          debug.tried.push(sel);
-          try {
-            const messages = document.querySelectorAll(sel);
-            if (messages.length > 0) {
-              const lastMessage = messages[messages.length - 1];
-              const content = lastMessage?.innerText || lastMessage?.textContent || '';
-              if (content.trim().length > 10) {
-                debug.found.push({ selector: sel, length: content.length });
-                return { success: true, content: content.trim(), selector: sel, debug };
-              }
-            }
-          } catch (e) {
-            debug.found.push({ selector: sel, error: e.message });
-          }
-        }
-
-        return { success: false, content: '', error: 'no messages found', debug };
-      })()
-    `;
-
-    try {
-      const result = await this.executeScript<{
-        success: boolean;
-        content: string;
-        selector?: string;
-        error?: string;
-        debug?: object;
-      }>(script, { success: false, content: '', error: 'script failed' });
-
-      console.log('[gemini] getResponse result:', JSON.stringify(result));
-
-      if (!result.success) {
-        return this.error('EXTRACT_FAILED', `Gemini getResponse failed: ${result.error}`);
-      }
-
-      return this.success(result.content);
-    } catch (error) {
-      return this.error('EXTRACT_FAILED', `Gemini getResponse exception: ${error}`);
-    }
+  /**
+   * Issue #31: Gemini 전용 응답 셀렉터
+   */
+  protected override getResponseSelectors(): string[] {
+    return [
+      '.response-container',
+      '.model-response',
+      '[data-content-type="response"]',
+      '.message-content',
+      'model-response .content',
+      '.markdown-content',
+      '[role="article"]',
+    ];
   }
 
   // --- Legacy methods (backward compatibility) ---

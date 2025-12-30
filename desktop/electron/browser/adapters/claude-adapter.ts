@@ -411,7 +411,8 @@ export class ClaudeAdapter extends BaseLLMAdapter {
         if (debug.stopButton) {
           writing = true;
           reason = 'stopButton: ' + debug.stopSelector;
-        } else if (debug.sendButton.exists && debug.sendButton.disabled) {
+        // Issue #30: removed sendButton.disabled check
+        } else if (false) { // disabled
           writing = true;
           reason = 'sendDisabled';
         } else if (debug.loading) {
@@ -465,15 +466,29 @@ export class ClaudeAdapter extends BaseLLMAdapter {
     this.lastContentChangeTime = 0;
   }
 
+  /**
+   * Issue #31: 공통 extractResponseFromSelectors 사용
+   * Claude 전용 셀렉터 + TreeWalker 폴백 활성화
+   */
   async getResponse(): Promise<AdapterResult<string>> {
     console.log(`[claude] getResponse called`);
+    return this.extractResponseFromSelectors({
+      selectors: this.getResponseSelectors(),
+      minLength: 5,
+      domSettleMs: 1500,
+      maxRetries: 1,
+      useRecursiveExtraction: false,
+      useTreeWalker: true, // Claude는 TreeWalker 폴백 사용
+    });
+  }
 
-    // Wait for DOM to settle
-    await this.sleep(1500);
-
-    // Issue #28: 2025-12 DOM - standard-markdown 기반 응답 추출
-    const responseSelectors = [
-      // Issue #28: 새로운 primary 셀렉터
+  /**
+   * Issue #31: Claude 전용 응답 셀렉터
+   * 2025-12 DOM 구조에 맞춘 셀렉터 목록
+   */
+  protected override getResponseSelectors(): string[] {
+    return [
+      // Issue #28: 2025-12 primary 셀렉터
       'div.standard-markdown',
       'p.font-claude-response-body',
       '.font-claude-response-body',
@@ -484,164 +499,6 @@ export class ClaudeAdapter extends BaseLLMAdapter {
       '.whitespace-pre-wrap',
       'main p',
       'main div > p',
-    ].map(s => `'${s}'`).join(', ');
-
-    const script = `
-      (() => {
-        try {
-          const debug = { tried: [], found: [], mainChildren: [] };
-          const selectors = [${responseSelectors}];
-
-          // Issue #28: 먼저 새로운 primary 셀렉터로 시도
-          const primarySelectors = [
-            'div.standard-markdown',
-            'p.font-claude-response-body',
-            '.font-claude-response-body',
-          ];
-
-          for (const sel of primarySelectors) {
-            debug.tried.push(sel);
-            try {
-              const messages = document.querySelectorAll(sel);
-              if (messages.length > 0) {
-                debug.found.push({ sel, count: messages.length });
-                // 마지막 응답 요소의 텍스트 추출
-                const lastMessage = messages[messages.length - 1];
-                const content = lastMessage?.innerText || lastMessage?.textContent || '';
-                if (content.trim() && content.length > 5) {
-                  return {
-                    success: true,
-                    content: content.trim(),
-                    selector: sel,
-                    count: messages.length,
-                    debug
-                  };
-                }
-              }
-            } catch (e) {
-              // Continue to next selector
-            }
-          }
-
-          // Fallback: 나머지 셀렉터 로직
-          for (const sel of selectors) {
-            if (primarySelectors.includes(sel)) continue; // 이미 시도한 셀렉터 스킵
-            debug.tried.push(sel);
-            try {
-              const messages = document.querySelectorAll(sel);
-              if (messages.length > 0) {
-                debug.found.push({ sel, count: messages.length });
-                const lastMessage = messages[messages.length - 1];
-                const content = lastMessage?.innerText || lastMessage?.textContent || '';
-                if (content.trim() && content.length > 10) {
-                  return {
-                    success: true,
-                    content: content.trim(),
-                    selector: sel,
-                    count: messages.length,
-                    debug
-                  };
-                }
-              }
-            } catch (e) {
-              // Continue to next selector
-            }
-          }
-
-          // Fallback: TreeWalker로 main 하위 분석
-          const main = document.querySelector('main');
-          if (main) {
-            const walker = document.createTreeWalker(
-              main,
-              NodeFilter.SHOW_ELEMENT,
-              {
-                acceptNode: function(node) {
-                  const text = node.textContent?.trim() || '';
-                  if (text.length > 50 && !node.closest('[contenteditable]') && !node.closest('textarea') && !node.closest('fieldset')) {
-                    return NodeFilter.FILTER_ACCEPT;
-                  }
-                  return NodeFilter.FILTER_SKIP;
-                }
-              }
-            );
-
-            let count = 0;
-            let lastValidNode = null;
-            let node;
-            while ((node = walker.nextNode()) && count < 20) {
-              debug.mainChildren.push({
-                tag: node.tagName,
-                classes: node.className?.toString?.()?.substring?.(0, 50),
-                textLen: node.textContent?.length || 0,
-              });
-              lastValidNode = node;
-              count++;
-            }
-
-            if (lastValidNode) {
-              const content = lastValidNode.innerText || lastValidNode.textContent || '';
-              if (content.trim().length > 10) {
-                return {
-                  success: true,
-                  content: content.trim(),
-                  selector: 'treeWalker',
-                  count: 1,
-                  debug
-                };
-              }
-            }
-          }
-
-          // Debug info
-          debug.proseCount = document.querySelectorAll('.prose').length;
-          debug.articleCount = document.querySelectorAll('article').length;
-          debug.mainCount = document.querySelectorAll('main').length;
-          debug.standardMarkdownCount = document.querySelectorAll('div.standard-markdown').length;
-          debug.fontClaudeCount = document.querySelectorAll('.font-claude-response-body').length;
-
-          return {
-            success: false,
-            content: '',
-            error: 'no messages found',
-            debug
-          };
-        } catch (e) {
-          return { success: false, content: '', error: e.message };
-        }
-      })()
-    `;
-
-    try {
-      const result = await this.executeScript<{
-        success: boolean;
-        content: string;
-        error?: string;
-        selector?: string;
-        debug?: object;
-      }>(script, { success: false, content: '', error: 'script failed' });
-
-      // Issue #9: 상세 디버그 로그
-      console.log(`[claude] getResponse result:`);
-      console.log(`  - success: ${result.success}`);
-      console.log(`  - content length: ${result.content?.length || 0}`);
-      console.log(`  - selector: ${result.selector || 'none'}`);
-      if (result.error) {
-        console.log(`  - error: ${result.error}`);
-      }
-      if (result.debug) {
-        console.log(`[claude] DEBUG info:`);
-        console.log(JSON.stringify(result.debug, null, 2));
-      }
-
-      if (!result.success || !result.content) {
-        return this.error('EXTRACT_FAILED', `Claude getResponse failed: ${result.error}`, {
-          debug: result.debug,
-        });
-      }
-
-      return this.success(result.content);
-    } catch (error) {
-      return this.error('EXTRACT_FAILED', `Claude getResponse exception: ${error}`);
-    }
+    ];
   }
 }

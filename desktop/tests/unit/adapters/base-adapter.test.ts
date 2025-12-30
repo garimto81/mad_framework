@@ -224,10 +224,9 @@ describe('BaseLLMAdapter', () => {
   describe('extractResponse', () => {
     it('should extract last response content', async () => {
       const expectedResponse = 'This is the LLM response';
-      // findElement returns true, then extract script returns the response
+      // Issue #31: extractResponseFromSelectors returns object with success/content
       mockWebContents.executeJavaScript
-        .mockResolvedValueOnce(true)  // findElement
-        .mockResolvedValueOnce(expectedResponse); // extract script
+        .mockResolvedValueOnce({ success: true, content: expectedResponse });
 
       const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
       const response = await adapter.extractResponse();
@@ -236,9 +235,9 @@ describe('BaseLLMAdapter', () => {
     });
 
     it('should return empty string when no response exists', async () => {
+      // Issue #31: extractResponseFromSelectors returns object with success/content
       mockWebContents.executeJavaScript
-        .mockResolvedValueOnce(true)  // findElement
-        .mockResolvedValueOnce(''); // empty response
+        .mockResolvedValueOnce({ success: false, content: '', error: 'no messages found' });
 
       const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
       const response = await adapter.extractResponse();
@@ -320,10 +319,9 @@ describe('BaseLLMAdapter', () => {
     it('should filter out loading placeholder responses', async () => {
       const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
 
-      // Setup to check hasValidResponse behavior
+      // Issue #31: extractResponseFromSelectors returns object with success/content
       mockWebContents.executeJavaScript
-        .mockResolvedValueOnce(true)  // findElement
-        .mockResolvedValueOnce('loading...');  // getResponse returns loading text
+        .mockResolvedValueOnce({ success: true, content: 'loading...' });
 
       // hasValidResponse should return false for loading placeholder
       const hasValid = await (adapter as any).hasValidResponse();
@@ -333,9 +331,9 @@ describe('BaseLLMAdapter', () => {
     it('should accept valid response over minimum length', async () => {
       const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
 
+      // Issue #31: extractResponseFromSelectors returns object with success/content
       mockWebContents.executeJavaScript
-        .mockResolvedValueOnce(true)  // findElement
-        .mockResolvedValueOnce('This is a valid response with enough characters');
+        .mockResolvedValueOnce({ success: true, content: 'This is a valid response with enough characters' });
 
       const hasValid = await (adapter as any).hasValidResponse();
       expect(hasValid).toBe(true);
@@ -344,9 +342,9 @@ describe('BaseLLMAdapter', () => {
     it('should reject very short responses', async () => {
       const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
 
+      // Issue #31: extractResponseFromSelectors returns object with success/content
       mockWebContents.executeJavaScript
-        .mockResolvedValueOnce(true)  // findElement
-        .mockResolvedValueOnce('Hi');  // too short
+        .mockResolvedValueOnce({ success: true, content: 'Hi' });
 
       const hasValid = await (adapter as any).hasValidResponse();
       expect(hasValid).toBe(false);
@@ -355,9 +353,9 @@ describe('BaseLLMAdapter', () => {
     it('should reject ellipsis-only responses', async () => {
       const adapter = new BaseLLMAdapter('chatgpt', mockWebContents as any);
 
+      // Issue #31: extractResponseFromSelectors returns object with success/content
       mockWebContents.executeJavaScript
-        .mockResolvedValueOnce(true)  // findElement
-        .mockResolvedValueOnce('...');
+        .mockResolvedValueOnce({ success: true, content: '...' });
 
       const hasValid = await (adapter as any).hasValidResponse();
       expect(hasValid).toBe(false);
