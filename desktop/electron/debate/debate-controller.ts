@@ -17,6 +17,7 @@ import type {
 import type { BrowserViewManager } from '../browser/browser-view-manager';
 import type { CycleDetector } from './cycle-detector';
 import type { ProgressLogger } from './progress-logger';
+import type { SessionRecorder } from '../session/session-recorder';
 import {
   MAX_ITERATIONS,
   MAX_CONSECUTIVE_EMPTY_RESPONSES,
@@ -67,7 +68,8 @@ export class DebateController {
     private repository: DebateRepository,
     private cycleDetector: CycleDetector,
     private eventEmitter: EventEmitter,
-    private progressLogger?: ProgressLogger
+    private progressLogger?: ProgressLogger,
+    private sessionRecorder?: SessionRecorder
   ) {}
 
   // Issue #34: 상태 스냅샷 조회
@@ -142,6 +144,9 @@ export class DebateController {
     // Create elements based on preset
     const elementNames = this.getElementNames(config.preset);
     await this.repository.createElements(this.debateId, elementNames);
+
+    // Issue #25: 세션 레코딩 시작
+    this.sessionRecorder?.startSession(this.debateId, config);
 
     // Issue #34: debate:started 이벤트 발행 (실제 세션 ID 전달)
     const startedEvent: DebateStartedEvent = {
@@ -248,6 +253,16 @@ export class DebateController {
     // 로그 기록
     this.progressLogger?.logDebateComplete(iteration);
 
+    // Issue #25: 세션 레코딩 완료
+    if (this.cancelled) {
+      this.sessionRecorder?.cancelSession();
+    } else if (finalStatus === 'error') {
+      this.sessionRecorder?.errorSession('Debate ended with error');
+    } else {
+      const completionReason = iteration >= MAX_ITERATIONS ? 'maxIterations' : 'consensus';
+      this.sessionRecorder?.completeSession(completionReason);
+    }
+
     // 이벤트 발행 (debateId 리셋 전에)
     this.eventEmitter.emit('debate:complete', {
       sessionId: this.debateId,
@@ -268,6 +283,7 @@ export class DebateController {
     // Issue #34: 취소 시 상태 변경
     this.status = 'cancelled';
     this.emitStateChanged();
+    // Issue #25: 세션 취소는 start() 종료 시 처리됨
   }
 
   private getElementNames(preset: string): string[] {
@@ -300,6 +316,9 @@ export class DebateController {
 
       const prompt = this.buildPrompt(config, iteration, incompleteElements);
       console.log(`[Debate] Built prompt (${prompt.length} chars)`);
+
+      // Issue #25: user 프롬프트 기록
+      this.sessionRecorder?.recordMessage(provider, 'user', prompt, iteration);
 
       console.log(`[Debate] Inputting prompt...`);
       await adapter.inputPrompt(prompt);
@@ -338,6 +357,9 @@ export class DebateController {
         });
         return false;
       }
+
+      // Issue #25: assistant 응답 기록
+      this.sessionRecorder?.recordMessage(provider, 'assistant', response, iteration);
 
       // Parse and update element scores
       const scores = this.parseElementScores(response);
