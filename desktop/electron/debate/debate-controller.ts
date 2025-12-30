@@ -6,10 +6,8 @@
 
 import type {
   DebateConfig,
-  DebateSession,
   DebateElement,
   LLMProvider,
-  DebateProgress,
   DebateProgressExtended,
   DebateResult,
   ElementScoreUpdate,
@@ -48,7 +46,8 @@ const PRESET_ELEMENTS: Record<string, string[]> = {
 
 // Circuit Breaker 상수
 const MAX_ITERATIONS = 100;
-const MAX_CONSECUTIVE_EMPTY_RESPONSES = 3;
+const MAX_CONSECUTIVE_EMPTY_RESPONSES = 5; // Issue #33: 3→5 증가 (일시적 빈 응답 허용)
+const RETRY_DELAY_MS = 2000; // Issue #33: 빈 응답 시 재시도 전 대기 시간
 
 export class DebateController {
   private debateId: string | null = null;
@@ -63,6 +62,11 @@ export class DebateController {
     private eventEmitter: EventEmitter,
     private progressLogger?: ProgressLogger
   ) {}
+
+  // Issue #33: sleep 헬퍼
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
   // 상태 조회 메서드 (Claude Code 모니터링용)
   isRunning(): boolean {
@@ -262,17 +266,25 @@ export class DebateController {
       await adapter.sendMessage();
       console.log(`[Debate] Message sent`);
 
-      // Wait for response
+      // Wait for response with retry logic (Issue #33)
       console.log(`[Debate] Calling waitForResponse...`);
       await adapter.waitForResponse(120000);
       console.log(`[Debate] waitForResponse completed`);
 
-      // Extract response
+      // Extract response with retry (Issue #33)
       console.log(`[Debate] Extracting response...`);
-      const response = await adapter.extractResponse();
+      let response = await adapter.extractResponse();
       console.log(`[Debate] Response extracted (${response.length} chars)`);
 
-      // Check for empty response (#13)
+      // Issue #33: 응답이 비어있으면 재시도 1회
+      if (!response || response.trim().length === 0) {
+        console.warn(`[Debate] Empty response, retrying after ${RETRY_DELAY_MS}ms...`);
+        await this.sleep(RETRY_DELAY_MS);
+        response = await adapter.extractResponse();
+        console.log(`[Debate] Retry response (${response.length} chars)`);
+      }
+
+      // Check for empty response after retry
       if (!response || response.trim().length === 0) {
         console.error(`[Debate] Empty response from ${provider} at iteration ${iteration}`);
         this.eventEmitter.emit('debate:error', {
@@ -287,10 +299,26 @@ export class DebateController {
       // Parse and update element scores
       const scores = this.parseElementScores(response);
 
-      // Check if parsing succeeded
+      // Issue #33: 파싱 실패해도 응답이 충분히 길면 부분 성공으로 처리
       if (scores.length === 0) {
         console.warn(`[Debate] No scores parsed from response at iteration ${iteration}`);
-        // Still emit response event but return false for empty scores
+
+        // 응답이 200자 이상이면 LLM이 형식 없이 응답한 것으로 간주
+        // → 에러가 아닌 경고로 처리하고 다음 iteration에서 재요청
+        if (response.trim().length >= 200) {
+          console.log(`[Debate] Long response without parseable scores, will retry next iteration`);
+          this.eventEmitter.emit('debate:response', {
+            sessionId: this.debateId,
+            iteration,
+            provider,
+            content: response,
+            timestamp: new Date().toISOString(),
+          });
+          // 긴 응답은 유효한 것으로 간주 (consecutiveEmptyResponses 증가 안 함)
+          return true;
+        }
+
+        // 짧은 응답이면 빈 응답으로 처리
         this.eventEmitter.emit('debate:response', {
           sessionId: this.debateId,
           iteration,

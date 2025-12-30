@@ -469,53 +469,61 @@ describe('DebateController', () => {
   });
 
   describe('error scenarios (Issue #19)', () => {
-    it('should handle empty response from extractResponse', async () => {
-      const element: DebateElement = {
-        id: 'elem-1',
-        name: '보안',
-        status: 'pending',
-        currentScore: 50,
-        scoreHistory: [],
-        versionHistory: [],
-      };
+    it(
+      'should handle empty response from extractResponse',
+      async () => {
+        const element: DebateElement = {
+          id: 'elem-1',
+          name: '보안',
+          status: 'pending',
+          currentScore: 50,
+          scoreHistory: [],
+          versionHistory: [],
+        };
 
-      // Return empty response
-      mockAdapter.extractResponse.mockResolvedValue('');
+        // Return empty response
+        mockAdapter.extractResponse.mockResolvedValue('');
 
-      // After 3 empty responses, circuit breaker should trigger
-      mockRepository.getIncompleteElements.mockResolvedValue([element]);
+        // After 5 empty responses (Issue #33), circuit breaker should trigger
+        mockRepository.getIncompleteElements.mockResolvedValue([element]);
 
-      await controller.start(defaultConfig);
+        await controller.start(defaultConfig);
 
-      // Should emit error event for empty responses
-      const errorCalls = mockEventEmitter.emit.mock.calls.filter(
-        ([event]) => event === 'debate:error'
-      );
-      expect(errorCalls.length).toBeGreaterThanOrEqual(1);
-    });
+        // Should emit error event for empty responses
+        const errorCalls = mockEventEmitter.emit.mock.calls.filter(
+          ([event]) => event === 'debate:error'
+        );
+        expect(errorCalls.length).toBeGreaterThanOrEqual(1);
+      },
+      15000
+    );
 
-    it('should stop after MAX_CONSECUTIVE_EMPTY_RESPONSES (3)', async () => {
-      const element: DebateElement = {
-        id: 'elem-1',
-        name: '보안',
-        status: 'pending',
-        currentScore: 50,
-        scoreHistory: [],
-        versionHistory: [],
-      };
+    it(
+      'should stop after MAX_CONSECUTIVE_EMPTY_RESPONSES (5, Issue #33)',
+      async () => {
+        const element: DebateElement = {
+          id: 'elem-1',
+          name: '보안',
+          status: 'pending',
+          currentScore: 50,
+          scoreHistory: [],
+          versionHistory: [],
+        };
 
-      // Return empty response every time
-      mockAdapter.extractResponse.mockResolvedValue('');
-      mockRepository.getIncompleteElements.mockResolvedValue([element]);
+        // Return empty response every time
+        mockAdapter.extractResponse.mockResolvedValue('');
+        mockRepository.getIncompleteElements.mockResolvedValue([element]);
 
-      await controller.start(defaultConfig);
+        await controller.start(defaultConfig);
 
-      // Should stop after 3 consecutive empty responses
-      expect(mockRepository.updateStatus).toHaveBeenCalledWith(
-        expect.any(String),
-        'error'
-      );
-    });
+        // Should stop after 5 consecutive empty responses (Issue #33: 3→5)
+        expect(mockRepository.updateStatus).toHaveBeenCalledWith(
+          expect.any(String),
+          'error'
+        );
+      },
+      15000
+    );
 
     it('should emit error event when inputPrompt fails', async () => {
       const element: DebateElement = {

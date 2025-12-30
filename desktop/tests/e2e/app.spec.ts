@@ -44,7 +44,6 @@ test.describe('MAD Desktop App E2E Tests', () => {
 
   test.describe('Debate Config Panel', () => {
     test('should have topic input field', async ({ page }) => {
-      const topicInput = page.locator('input[placeholder*="주제"], textarea[placeholder*="주제"], input[name="topic"], textarea[name="topic"]');
       // If no placeholder, try label
       const topicSection = page.locator('text=주제').first();
       await expect(topicSection).toBeVisible();

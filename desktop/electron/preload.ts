@@ -5,15 +5,7 @@
  */
 
 import { contextBridge, ipcRenderer } from 'electron';
-import type {
-  DebateConfig,
-  DebateProgress,
-  DebateResponse,
-  DebateResult,
-  ElementScoreUpdate,
-  LLMLoginStatus,
-  LLMProvider,
-} from '../shared/types';
+import type { DebateConfig, LLMProvider } from '../shared/types';
 
 // API exposed to renderer
 const electronAPI = {

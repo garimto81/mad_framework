@@ -9,13 +9,11 @@ import type {
   DebateConfig,
   DebateSession,
   DebateElement,
-  DebateProgress,
   DebateProgressExtended,
   DebateResponse,
   DebateResult,
   DetailedStatus,
   ElementScoreUpdate,
-  LLMProvider,
 } from '@shared/types';
 import { ipc } from '../lib/ipc';
 

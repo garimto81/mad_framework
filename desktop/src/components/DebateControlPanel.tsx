@@ -5,7 +5,6 @@
  */
 
 import { useDebateStore } from '../stores/debate-store';
-import type { DebateConfig } from '@shared/types';
 
 interface DebateControlPanelProps {
   onStart: () => void;
