@@ -8,16 +8,15 @@
 import type { LLMProvider, LLMStatus, DetailedStatus } from '../../shared/types';
 import type { BrowserViewManager } from '../browser/browser-view-manager';
 import type { ProgressLogger } from './progress-logger';
+import {
+  MIN_POLL_INTERVAL,
+  MAX_POLL_INTERVAL,
+  DEFAULT_POLL_INTERVAL,
+  ESTIMATED_MAX_TOKENS,
+} from '../constants';
 
 type StatusChangeCallback = (status: LLMStatus, previousStatus: LLMStatus | null) => void;
 type DetailedStatusCallback = (status: DetailedStatus) => void;
-
-const MIN_POLL_INTERVAL = 100;
-const MAX_POLL_INTERVAL = 30000;
-const DEFAULT_POLL_INTERVAL = 500;
-
-// Estimated max tokens for progress calculation
-const ESTIMATED_MAX_TOKENS = 2000;
 
 export class StatusPoller {
   private _pollInterval: number = DEFAULT_POLL_INTERVAL;
