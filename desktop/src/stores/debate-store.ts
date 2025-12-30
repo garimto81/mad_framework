@@ -12,6 +12,8 @@ import type {
   DebateProgressExtended,
   DebateResponse,
   DebateResult,
+  DebateStateSnapshot,
+  DebateStartedEvent,
   DetailedStatus,
   ElementScoreUpdate,
 } from '@shared/types';
@@ -20,7 +22,11 @@ import { ipc } from '../lib/ipc';
 interface DebateState {
   // Current session
   session: DebateSession | null;
+  // Issue #34: isRunning은 Controller 상태에서 파생 (캐시)
   isRunning: boolean;
+
+  // Issue #34: Controller 상태 스냅샷 (Single Source of Truth 캐시)
+  controllerState: DebateStateSnapshot | null;
 
   // Progress tracking
   currentProgress: DebateProgressExtended | null;
@@ -45,12 +51,17 @@ interface DebateState {
   handleCycleDetected: (data: { elementId: string; elementName: string }) => void;
   handleComplete: (result: DebateResult) => void;
   handleError: (error: { error: string }) => void;
+  // Issue #34: 새로운 이벤트 핸들러
+  handleStarted: (event: DebateStartedEvent) => void;
+  handleStateChanged: (state: DebateStateSnapshot) => void;
 }
 
 export const useDebateStore = create<DebateState>((set, get) => ({
   // Initial state
   session: null,
   isRunning: false,
+  // Issue #34: Controller 상태 캐시
+  controllerState: null,
   currentProgress: null,
   currentStatus: null,
   elements: [],
@@ -58,21 +69,14 @@ export const useDebateStore = create<DebateState>((set, get) => ({
   error: null,
 
   // Actions
+  // Issue #34: 임시 세션 생성 제거 - Controller의 debate:started 이벤트에서 세션 정보 수신
   startDebate: async (config: DebateConfig) => {
-    set({ error: null, isRunning: true });
+    set({ error: null });
+    // isRunning은 handleStateChanged에서 Controller 상태 기반으로 설정됨
 
     try {
       await ipc.debate.start(config);
-      set({
-        session: {
-          id: `session-${Date.now()}`,
-          config,
-          status: 'running',
-          currentIteration: 0,
-          elements: [],
-          createdAt: new Date().toISOString(),
-        },
-      });
+      // 세션 정보는 handleStarted에서 설정됨
     } catch (error) {
       set({ error: String(error), isRunning: false });
     }
@@ -93,6 +97,7 @@ export const useDebateStore = create<DebateState>((set, get) => ({
     set({
       session: null,
       isRunning: false,
+      controllerState: null,
       currentProgress: null,
       currentStatus: null,
       elements: [],
@@ -113,6 +118,9 @@ export const useDebateStore = create<DebateState>((set, get) => ({
     ipc.onCycleDetected(store.handleCycleDetected);
     ipc.onDebateComplete(store.handleComplete);
     ipc.onDebateError(store.handleError);
+    // Issue #34: 새로운 이벤트 구독
+    ipc.onDebateStarted(store.handleStarted);
+    ipc.onDebateStateChanged(store.handleStateChanged);
   },
 
   // Event handlers
@@ -189,6 +197,28 @@ export const useDebateStore = create<DebateState>((set, get) => ({
     set({
       error: error.error,
       isRunning: false,
+    });
+  },
+
+  // Issue #34: Controller에서 debate:started 이벤트 수신
+  handleStarted: (event: DebateStartedEvent) => {
+    set({
+      session: {
+        id: event.sessionId,
+        config: event.config,
+        status: 'running',
+        currentIteration: 0,
+        elements: [],
+        createdAt: event.createdAt,
+      },
+    });
+  },
+
+  // Issue #34: Controller 상태 변경 시 캐시 업데이트
+  handleStateChanged: (state: DebateStateSnapshot) => {
+    set({
+      controllerState: state,
+      isRunning: state.isRunning,
     });
   },
 }));

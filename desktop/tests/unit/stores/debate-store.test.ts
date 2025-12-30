@@ -15,11 +15,15 @@ vi.mock('../../../src/lib/ipc', () => ({
       cancel: vi.fn().mockResolvedValue({ success: true }),
     },
     onDebateProgress: vi.fn(),
+    onStatusUpdate: vi.fn(),
     onElementScore: vi.fn(),
     onDebateResponse: vi.fn(),
     onCycleDetected: vi.fn(),
     onDebateComplete: vi.fn(),
     onDebateError: vi.fn(),
+    // Issue #34: 새로운 이벤트 핸들러
+    onDebateStarted: vi.fn(),
+    onDebateStateChanged: vi.fn(),
   },
 }));
 
@@ -29,7 +33,9 @@ describe('useDebateStore', () => {
     useDebateStore.setState({
       session: null,
       isRunning: false,
+      controllerState: null,
       currentProgress: null,
+      currentStatus: null,
       elements: [],
       responses: [],
       error: null,
@@ -51,7 +57,8 @@ describe('useDebateStore', () => {
   });
 
   describe('startDebate', () => {
-    it('should start debate and create session', async () => {
+    // Issue #34: startDebate는 IPC 호출만 하고, session/isRunning은 이벤트로 설정됨
+    it('should call ipc.debate.start and clear error', async () => {
       const config = {
         topic: 'Test topic',
         preset: 'technical',
@@ -63,12 +70,47 @@ describe('useDebateStore', () => {
 
       await useDebateStore.getState().startDebate(config);
 
+      const { ipc } = await import('../../../src/lib/ipc');
+      expect(ipc.debate.start).toHaveBeenCalledWith(config);
+      expect(useDebateStore.getState().error).toBeNull();
+    });
+
+    it('should set session via handleStarted event', async () => {
+      const config = {
+        topic: 'Test topic',
+        preset: 'technical',
+        participants: ['chatgpt', 'claude'] as const,
+        judgeProvider: 'gemini' as const,
+        completionThreshold: 90,
+      };
+
+      // Simulate Controller's debate:started event
+      useDebateStore.getState().handleStarted({
+        sessionId: 'session-123',
+        config,
+        createdAt: '2025-01-01T00:00:00Z',
+      });
+
       const state = useDebateStore.getState();
-      expect(state.isRunning).toBe(true);
       expect(state.session).not.toBeNull();
+      expect(state.session?.id).toBe('session-123');
       expect(state.session?.config).toEqual(config);
       expect(state.session?.status).toBe('running');
-      expect(state.error).toBeNull();
+    });
+
+    it('should set isRunning via handleStateChanged event', async () => {
+      // Simulate Controller's debate:state-changed event
+      useDebateStore.getState().handleStateChanged({
+        debateId: 'session-123',
+        isRunning: true,
+        currentIteration: 1,
+        currentProvider: 'chatgpt',
+        status: 'running',
+      });
+
+      const state = useDebateStore.getState();
+      expect(state.isRunning).toBe(true);
+      expect(state.controllerState?.status).toBe('running');
     });
 
     it('should handle start error', async () => {
