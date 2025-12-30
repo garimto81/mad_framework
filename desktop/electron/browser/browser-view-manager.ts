@@ -18,8 +18,16 @@ interface Rectangle {
   height: number;
 }
 
+interface BrowserViewWebContents {
+  loadURL: (url: string) => void;
+  executeJavaScript: (script: string) => Promise<unknown>;
+  on: (event: string, callback: (...args: unknown[]) => void) => void;
+  getURL: () => string;
+  close?: () => void;
+}
+
 interface BrowserView {
-  webContents: any;
+  webContents: BrowserViewWebContents;
   setBounds: (bounds: Rectangle) => void;
   destroy: () => void;
 }
@@ -106,7 +114,7 @@ export class BrowserViewManager {
     return view;
   }
 
-  private createAdapter(provider: LLMProvider, webContents: any): BaseLLMAdapter {
+  private createAdapter(provider: LLMProvider, webContents: BrowserViewWebContents): BaseLLMAdapter {
     switch (provider) {
       case 'chatgpt':
         return new ChatGPTAdapter(webContents);
@@ -123,7 +131,7 @@ export class BrowserViewManager {
     return this.views.get(provider);
   }
 
-  getWebContents(provider: LLMProvider): any {
+  getWebContents(provider: LLMProvider): BrowserViewWebContents | undefined {
     return this.views.get(provider)?.webContents;
   }
 
@@ -210,7 +218,7 @@ export class BrowserViewManager {
   }
 
   async checkLoginStatus(): Promise<Record<LLMProvider, LLMLoginStatus>> {
-    const result: Record<LLMProvider, LLMLoginStatus> = {} as any;
+    const result = {} as Record<LLMProvider, LLMLoginStatus>;
     const providers: LLMProvider[] = ['chatgpt', 'claude', 'gemini'];
 
     for (const provider of providers) {

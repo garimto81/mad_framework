@@ -22,8 +22,25 @@ import {
   LONG_RESPONSE_THRESHOLD,
 } from '../constants';
 
+interface DebateCreateData {
+  topic: string;
+  context?: string;
+  preset: string;
+  participants: LLMProvider[];
+  judgeProvider: LLMProvider;
+  completionThreshold: number;
+}
+
+interface ElementVersion {
+  id: string;
+  content: string;
+  score: number;
+  iteration: number;
+  provider: string;
+}
+
 interface DebateRepository {
-  create: (data: any) => Promise<string>;
+  create: (data: DebateCreateData) => Promise<string>;
   createElements: (debateId: string, elementNames: string[]) => Promise<void>;
   updateElementScore: (
     elementId: string,
@@ -33,15 +50,15 @@ interface DebateRepository {
     provider: string
   ) => Promise<void>;
   markElementComplete: (elementId: string, reason: 'threshold' | 'cycle') => Promise<void>;
-  getLast3Versions: (elementId: string) => Promise<any[]>;
+  getLast3Versions: (elementId: string) => Promise<ElementVersion[]>;
   getIncompleteElements: (debateId: string) => Promise<DebateElement[]>;
   updateIteration: (debateId: string, iteration: number) => Promise<void>;
   updateStatus: (debateId: string, status: string) => Promise<void>;
 }
 
 interface EventEmitter {
-  emit: (event: string, data: any) => void;
-  on: (event: string, callback: (data: any) => void) => void;
+  emit: (event: string, data: unknown) => void;
+  on: (event: string, callback: (data: unknown) => void) => void;
 }
 
 const PRESET_ELEMENTS: Record<string, string[]> = {
@@ -527,14 +544,14 @@ ${elementList}
 
   // Issue #33: 요소 정규화 헬퍼
   private normalizeElements(
-    elements: any[]
+    elements: Array<Record<string, unknown>>
   ): Array<{ elementName: string; score: number; critique: string }> {
     return elements
       .filter(e => e && (e.name || e.elementName))
-      .map((e: any) => ({
-        elementName: e.name || e.elementName || 'unknown',
+      .map((e) => ({
+        elementName: String(e.name || e.elementName || 'unknown'),
         score: Number(e.score) || 0,
-        critique: e.critique || e.feedback || e.comment || '',
+        critique: String(e.critique || e.feedback || e.comment || ''),
       }));
   }
 
