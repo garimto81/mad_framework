@@ -4,7 +4,7 @@
  * Main ↔ Renderer 통신 핸들러
  */
 
-import { ipcMain, BrowserWindow, app } from 'electron';
+import { ipcMain, BrowserWindow, app, dialog } from 'electron';
 import * as path from 'path';
 import type {
   DebateConfig,
@@ -17,6 +17,15 @@ import { InMemoryRepository } from '../debate/in-memory-repository';
 import { ProgressLogger } from '../debate/progress-logger';
 import { createScopedLogger } from '../utils/logger';
 import { BROWSER_VIEW_CREATION_DELAY, PROVIDER_CREATION_DELAY } from '../constants';
+import {
+  getSessionRecorder,
+  exportToJson,
+  exportToJsonFile,
+  exportToMarkdown,
+  exportToMarkdownFile,
+  getDefaultJsonFilename,
+  getDefaultMarkdownFilename,
+} from '../session';
 
 const log = createScopedLogger('IPC');
 
@@ -46,15 +55,17 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   const logDir = path.join(app.getAppPath(), 'logs');
   progressLogger.enableFileLogging(logDir);
 
-  // Initialize repository, cycle detector, and debate controller
+  // Initialize repository, cycle detector, session recorder, and debate controller
   repository = new InMemoryRepository();
   const cycleDetector = new CycleDetector(browserManager);
+  const sessionRecorder = getSessionRecorder();
   debateController = new DebateController(
     browserManager,
     repository,
     cycleDetector,
     eventEmitter,
-    progressLogger
+    progressLogger,
+    sessionRecorder
   );
 
   // Auto-create views and check login status on startup
@@ -572,6 +583,93 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     }
     return await adapter.getTokenCount();
   });
+
+  // === Session Handlers (Issue #25) ===
+
+  ipcMain.handle('session:list', async () => {
+    const recorder = getSessionRecorder();
+    return recorder.getAllSessions();
+  });
+
+  ipcMain.handle('session:get', async (_event, sessionId: string) => {
+    const recorder = getSessionRecorder();
+    return recorder.getSession(sessionId);
+  });
+
+  ipcMain.handle('session:get-current', async () => {
+    const recorder = getSessionRecorder();
+    return recorder.getCurrentSession();
+  });
+
+  ipcMain.handle('session:export-json', async (_event, sessionId: string, outputPath?: string) => {
+    const recorder = getSessionRecorder();
+    const session = recorder.getSession(sessionId);
+
+    if (!session) {
+      return { success: false, error: 'Session not found' };
+    }
+
+    if (outputPath) {
+      await exportToJsonFile(session, outputPath);
+      return { success: true, path: outputPath };
+    }
+
+    // 파일 다이얼로그 열기
+    const defaultName = getDefaultJsonFilename(session);
+    const result = await dialog.showSaveDialog({
+      title: 'Export Session as JSON',
+      defaultPath: defaultName,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, error: 'Export cancelled' };
+    }
+
+    await exportToJsonFile(session, result.filePath);
+    return { success: true, path: result.filePath };
+  });
+
+  ipcMain.handle('session:export-markdown', async (_event, sessionId: string, outputPath?: string) => {
+    const recorder = getSessionRecorder();
+    const session = recorder.getSession(sessionId);
+
+    if (!session) {
+      return { success: false, error: 'Session not found' };
+    }
+
+    if (outputPath) {
+      await exportToMarkdownFile(session, outputPath);
+      return { success: true, path: outputPath };
+    }
+
+    // 파일 다이얼로그 열기
+    const defaultName = getDefaultMarkdownFilename(session);
+    const result = await dialog.showSaveDialog({
+      title: 'Export Session as Markdown',
+      defaultPath: defaultName,
+      filters: [{ name: 'Markdown', extensions: ['md'] }],
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, error: 'Export cancelled' };
+    }
+
+    await exportToMarkdownFile(session, result.filePath);
+    return { success: true, path: result.filePath };
+  });
+
+  ipcMain.handle('session:delete', async (_event, sessionId: string) => {
+    const recorder = getSessionRecorder();
+    const deleted = recorder.deleteSession(sessionId);
+    return { success: deleted };
+  });
+
+  ipcMain.handle('session:clear', async () => {
+    const recorder = getSessionRecorder();
+    recorder.clear();
+    return { success: true };
+  });
 }
 
 // Cleanup on app quit
@@ -625,6 +723,14 @@ export async function cleanupIpcHandlers(): Promise<void> {
     'debug:dom-snapshot',
     'debug:get-logs',
     'debug:get-debate-status',
+    // Session handlers
+    'session:list',
+    'session:get',
+    'session:get-current',
+    'session:export-json',
+    'session:export-markdown',
+    'session:delete',
+    'session:clear',
   ];
 
   for (const handler of handlers) {

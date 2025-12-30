@@ -17,6 +17,24 @@ import type {
   LLMProvider,
 } from '@shared/types';
 
+// Session types (Issue #25)
+interface SessionRecord {
+  id: string;
+  debateId: string;
+  startedAt: string;
+  endedAt?: string;
+  status: 'active' | 'completed' | 'cancelled' | 'error';
+  config: DebateConfig;
+  messages: unknown[];
+  elements: unknown[];
+  metadata: {
+    totalTokens: number;
+    totalIterations: number;
+    providersUsed: LLMProvider[];
+    completionReason?: string;
+  };
+}
+
 // Mock electronAPI for browser environment (E2E testing)
 const mockElectronAPI = {
   debate: {
@@ -32,6 +50,15 @@ const mockElectronAPI = {
     }),
     openLoginWindow: async () => ({ success: true }),
     closeLoginWindow: async () => ({ success: true }),
+  },
+  session: {
+    list: async () => [] as SessionRecord[],
+    get: async () => null as SessionRecord | null,
+    getCurrent: async () => null as SessionRecord | null,
+    exportJson: async () => ({ success: true, path: '' }),
+    exportMarkdown: async () => ({ success: true, path: '' }),
+    delete: async () => ({ success: true }),
+    clear: async () => ({ success: true }),
   },
   on: () => () => {},
 };
@@ -64,6 +91,31 @@ export const ipc = {
     },
     closeLoginWindow: (): Promise<{ success: boolean }> => {
       return electronAPI.login.closeLoginWindow();
+    },
+  },
+
+  // Session actions (Issue #25)
+  session: {
+    list: (): Promise<SessionRecord[]> => {
+      return electronAPI.session.list();
+    },
+    get: (sessionId: string): Promise<SessionRecord | null> => {
+      return electronAPI.session.get(sessionId);
+    },
+    getCurrent: (): Promise<SessionRecord | null> => {
+      return electronAPI.session.getCurrent();
+    },
+    exportJson: (sessionId: string, outputPath?: string): Promise<{ success: boolean; path?: string; error?: string }> => {
+      return electronAPI.session.exportJson(sessionId, outputPath);
+    },
+    exportMarkdown: (sessionId: string, outputPath?: string): Promise<{ success: boolean; path?: string; error?: string }> => {
+      return electronAPI.session.exportMarkdown(sessionId, outputPath);
+    },
+    delete: (sessionId: string): Promise<{ success: boolean }> => {
+      return electronAPI.session.delete(sessionId);
+    },
+    clear: (): Promise<{ success: boolean }> => {
+      return electronAPI.session.clear();
     },
   },
 
