@@ -3,17 +3,70 @@
  *
  * Issue #25: 토론 세션의 메시지를 메모리에 기록
  * P0: 메모리 기반 기록, JSON 내보내기
+ * P2: SQLite 자동 저장 연동
  */
 
 import type { LLMProvider, DebateConfig, DebateElement } from '../../shared/types';
 import type { SessionRecord, MessageRecord, SessionMetadata } from './types';
+import type { SessionRepository } from './session-repository';
+
+export interface SessionRecorderOptions {
+  /** SQLite 저장소 (자동 저장용) */
+  repository?: SessionRepository;
+  /** 자동 저장 활성화 (default: true if repository provided) */
+  autoSave?: boolean;
+}
 
 /**
  * 세션 레코더 - 토론 메시지를 메모리에 기록
+ * P2: SQLite 자동 저장 지원
  */
 export class SessionRecorder {
   private sessions: Map<string, SessionRecord> = new Map();
   private currentSessionId: string | null = null;
+  private repository: SessionRepository | null = null;
+  private autoSave: boolean = false;
+
+  constructor(options?: SessionRecorderOptions) {
+    if (options?.repository) {
+      this.repository = options.repository;
+      this.autoSave = options.autoSave ?? true;
+    }
+  }
+
+  /**
+   * 자동 저장 활성화/비활성화
+   */
+  setAutoSave(enabled: boolean): void {
+    this.autoSave = enabled;
+  }
+
+  /**
+   * 저장소 설정
+   */
+  setRepository(repository: SessionRepository | null): void {
+    this.repository = repository;
+    if (repository && this.autoSave === false) {
+      this.autoSave = true;
+    }
+  }
+
+  /**
+   * 현재 세션을 저장소에 저장
+   */
+  private saveToRepository(): void {
+    if (!this.autoSave || !this.repository || !this.currentSessionId) return;
+
+    const session = this.sessions.get(this.currentSessionId);
+    if (session) {
+      try {
+        this.repository.saveSession(session);
+        console.log(`[SessionRecorder] Auto-saved session: ${this.currentSessionId}`);
+      } catch (error) {
+        console.error(`[SessionRecorder] Failed to auto-save session:`, error);
+      }
+    }
+  }
 
   /**
    * 새 세션 시작
@@ -38,6 +91,9 @@ export class SessionRecorder {
 
     this.sessions.set(sessionId, session);
     this.currentSessionId = sessionId;
+
+    // P2: 자동 저장 (세션 시작)
+    this.saveToRepository();
 
     console.log(`[SessionRecorder] Started session: ${sessionId}`);
     return sessionId;
@@ -84,6 +140,9 @@ export class SessionRecorder {
       session.metadata.providersUsed.push(provider);
     }
 
+    // P2: 자동 저장 (메시지 기록 후)
+    this.saveToRepository();
+
     console.log(
       `[SessionRecorder] Recorded message: ${role} from ${provider}, iteration ${iteration}, ${content.length} chars`
     );
@@ -121,6 +180,9 @@ export class SessionRecorder {
     session.status = 'completed';
     session.metadata.completionReason = reason;
 
+    // P2: 자동 저장 (세션 완료)
+    this.saveToRepository();
+
     console.log(
       `[SessionRecorder] Completed session: ${this.currentSessionId}, reason: ${reason}`
     );
@@ -144,6 +206,9 @@ export class SessionRecorder {
     session.status = 'cancelled';
     session.metadata.completionReason = 'cancelled';
 
+    // P2: 자동 저장 (세션 취소)
+    this.saveToRepository();
+
     console.log(`[SessionRecorder] Cancelled session: ${this.currentSessionId}`);
 
     const cancelledSession = session;
@@ -164,6 +229,9 @@ export class SessionRecorder {
     session.endedAt = new Date().toISOString();
     session.status = 'error';
     session.metadata.completionReason = 'error';
+
+    // P2: 자동 저장 (세션 오류)
+    this.saveToRepository();
 
     console.log(`[SessionRecorder] Error in session: ${this.currentSessionId}, ${error}`);
 

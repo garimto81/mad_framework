@@ -19,9 +19,9 @@ import { createScopedLogger } from '../utils/logger';
 import { BROWSER_VIEW_CREATION_DELAY, PROVIDER_CREATION_DELAY } from '../constants';
 import {
   getSessionRecorder,
-  exportToJson,
+  getSessionRepository,
+  closeSessionRepository,
   exportToJsonFile,
-  exportToMarkdown,
   exportToMarkdownFile,
   getDefaultJsonFilename,
   getDefaultMarkdownFilename,
@@ -58,7 +58,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   // Initialize repository, cycle detector, session recorder, and debate controller
   repository = new InMemoryRepository();
   const cycleDetector = new CycleDetector(browserManager);
+
+  // P2: SQLite 저장소를 세션 레코더에 연결 (자동 저장 활성화)
+  const sessionRepository = getSessionRepository();
   const sessionRecorder = getSessionRecorder();
+  sessionRecorder.setRepository(sessionRepository);
   debateController = new DebateController(
     browserManager,
     repository,
@@ -586,12 +590,19 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
 
   // === Session Handlers (Issue #25) ===
 
+  // P2: SQLite 저장소에서 세션 목록 조회 (영구 저장된 데이터)
   ipcMain.handle('session:list', async () => {
-    const recorder = getSessionRecorder();
-    return recorder.getAllSessions();
+    const repository = getSessionRepository();
+    return repository.getAllSessions({ includeMessages: true });
   });
 
   ipcMain.handle('session:get', async (_event, sessionId: string) => {
+    // 먼저 SQLite에서 조회, 없으면 메모리에서 조회
+    const repository = getSessionRepository();
+    const session = repository.getSession(sessionId);
+    if (session) return session;
+
+    // 메모리에서 조회 (현재 진행 중인 세션)
     const recorder = getSessionRecorder();
     return recorder.getSession(sessionId);
   });
@@ -602,8 +613,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   });
 
   ipcMain.handle('session:export-json', async (_event, sessionId: string, outputPath?: string) => {
-    const recorder = getSessionRecorder();
-    const session = recorder.getSession(sessionId);
+    // SQLite에서 먼저 조회
+    const repository = getSessionRepository();
+    let session = repository.getSession(sessionId);
+
+    // 없으면 메모리에서 조회
+    if (!session) {
+      const recorder = getSessionRecorder();
+      session = recorder.getSession(sessionId);
+    }
 
     if (!session) {
       return { success: false, error: 'Session not found' };
@@ -631,8 +649,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   });
 
   ipcMain.handle('session:export-markdown', async (_event, sessionId: string, outputPath?: string) => {
-    const recorder = getSessionRecorder();
-    const session = recorder.getSession(sessionId);
+    // SQLite에서 먼저 조회
+    const repository = getSessionRepository();
+    let session = repository.getSession(sessionId);
+
+    // 없으면 메모리에서 조회
+    if (!session) {
+      const recorder = getSessionRecorder();
+      session = recorder.getSession(sessionId);
+    }
 
     if (!session) {
       return { success: false, error: 'Session not found' };
@@ -660,14 +685,24 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
   });
 
   ipcMain.handle('session:delete', async (_event, sessionId: string) => {
+    // SQLite와 메모리 모두에서 삭제
+    const repository = getSessionRepository();
+    const deletedFromDb = repository.deleteSession(sessionId);
+
     const recorder = getSessionRecorder();
-    const deleted = recorder.deleteSession(sessionId);
-    return { success: deleted };
+    const deletedFromMemory = recorder.deleteSession(sessionId);
+
+    return { success: deletedFromDb || deletedFromMemory };
   });
 
   ipcMain.handle('session:clear', async () => {
+    // SQLite와 메모리 모두 초기화
+    const repository = getSessionRepository();
+    repository.clear();
+
     const recorder = getSessionRecorder();
     recorder.clear();
+
     return { success: true };
   });
 }
@@ -704,7 +739,11 @@ export async function cleanupIpcHandlers(): Promise<void> {
     progressLogger = null;
   }
 
-  // 5. IPC 핸들러 제거
+  // 5. SessionRepository 정리 (P2: SQLite 연결 닫기)
+  log.info('Closing session repository...');
+  closeSessionRepository();
+
+  // 6. IPC 핸들러 제거
   log.info('Removing IPC handlers...');
   const handlers = [
     'debate:start',
