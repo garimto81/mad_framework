@@ -7,7 +7,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { SessionRecord, ExportOptions, JsonExportResult, PartialExportOptions, MessageRecord } from '../types';
+import type { SessionRecord, ExportOptions, JsonExportResult, PartialExportOptions } from '../types';
 
 /**
  * 세션을 JSON 형식으로 내보내기

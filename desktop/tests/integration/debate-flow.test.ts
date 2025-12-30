@@ -52,6 +52,27 @@ vi.mock('electron', () => ({
   },
 }));
 
+interface MockMainWindow {
+  setBrowserView: ReturnType<typeof vi.fn>;
+  getBounds: ReturnType<typeof vi.fn>;
+}
+
+interface MockRepository {
+  create: ReturnType<typeof vi.fn>;
+  createElements: ReturnType<typeof vi.fn>;
+  updateElementScore: ReturnType<typeof vi.fn>;
+  markElementComplete: ReturnType<typeof vi.fn>;
+  getLast3Versions: ReturnType<typeof vi.fn>;
+  getIncompleteElements: ReturnType<typeof vi.fn>;
+  updateIteration: ReturnType<typeof vi.fn>;
+  updateStatus: ReturnType<typeof vi.fn>;
+}
+
+interface MockEventEmitter {
+  emit: ReturnType<typeof vi.fn>;
+  on: ReturnType<typeof vi.fn>;
+}
+
 describe('Debate Flow Integration', () => {
   let controller: DebateController;
   let browserManager: BrowserViewManager;
@@ -59,9 +80,9 @@ describe('Debate Flow Integration', () => {
   let statusPoller: StatusPoller;
   let logger: ProgressLogger;
   let cycleDetector: CycleDetector;
-  let mockMainWindow: any;
-  let mockRepository: any;
-  let mockEventEmitter: any;
+  let mockMainWindow: MockMainWindow;
+  let mockRepository: MockRepository;
+  let mockEventEmitter: MockEventEmitter;
 
   const defaultConfig: DebateConfig = {
     topic: 'Review this code for security issues',

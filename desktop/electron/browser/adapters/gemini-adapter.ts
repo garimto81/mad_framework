@@ -7,13 +7,7 @@
 
 import { BaseLLMAdapter } from './base-adapter';
 import type { AdapterResult } from '../../../shared/types';
-
-interface WebContents {
-  executeJavaScript: (script: string) => Promise<any>;
-  loadURL: (url: string) => void;
-  getURL: () => string;
-  on: (event: string, callback: (...args: any[]) => void) => void;
-}
+import type { WebContents } from './types';
 
 export class GeminiAdapter extends BaseLLMAdapter {
   readonly provider = 'gemini' as const;
