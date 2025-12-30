@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal, TypedDict
+from typing import Annotated, Any, Literal, TypedDict
 
 from langgraph.graph.message import add_messages
 
@@ -18,7 +18,7 @@ class DebateMessage(TypedDict):
     content: str
     round: int
     timestamp: str
-    metadata: dict
+    metadata: dict[str, Any]
 
 
 def create_message(
@@ -66,7 +66,7 @@ class DebateState(TypedDict):
     consensus_score: float
 
     # Results
-    judge_verdict: dict | None
+    judge_verdict: dict[str, Any] | None
     final_answer: str | None
     confidence_score: float | None
     dissenting_opinions: list[str]

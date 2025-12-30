@@ -54,7 +54,7 @@ class CostSummary:
 class CostTracker:
     """Track costs across a debate session."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the cost tracker."""
         self._entries: list[CostEntry] = []
 

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import time
 from collections.abc import AsyncIterator
+from typing import Any
 
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
 from mad.providers.base import LLMProvider, ProviderResponse
 
@@ -23,7 +24,7 @@ ANTHROPIC_PRICING = {
 class AnthropicProvider(LLMProvider):
     """Anthropic Claude provider using LangChain."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the Anthropic provider."""
         self._clients: dict[str, ChatAnthropic] = {}
 
@@ -47,9 +48,9 @@ class AnthropicProvider(LLMProvider):
 
     def _convert_messages(
         self, messages: list[dict[str, str]], system: str | None = None
-    ) -> tuple[list, str | None]:
+    ) -> tuple[list[BaseMessage], str | None]:
         """Convert dict messages to LangChain format."""
-        lc_messages = []
+        lc_messages: list[BaseMessage] = []
         sys_prompt = system
 
         for msg in messages:
@@ -89,7 +90,7 @@ class AnthropicProvider(LLMProvider):
         latency_ms = (time.perf_counter() - start_time) * 1000
 
         # Extract token usage
-        usage = response.usage_metadata or {}
+        usage: dict[str, Any] = dict(response.usage_metadata) if response.usage_metadata else {}
         input_tokens = usage.get("input_tokens", 0)
         output_tokens = usage.get("output_tokens", 0)
 

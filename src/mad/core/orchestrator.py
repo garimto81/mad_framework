@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from mad.agents.debater import DebaterAgent
 from mad.agents.judge import JudgeAgent
@@ -104,7 +105,8 @@ class MAD:
 
     def _get_provider(self, provider_name: str) -> LLMProvider:
         """Get a provider instance."""
-        return get_provider(provider_name)
+        # Cast to ProviderType for type safety
+        return get_provider(provider_name)  # type: ignore[arg-type]
 
     def _create_debaters(self) -> list[DebaterAgent]:
         """Create debater agents from config."""
@@ -207,10 +209,11 @@ class MAD:
         )
 
         # Run the graph
-        final_state = await self._graph.ainvoke(initial_state)
+        result = await self._graph.ainvoke(initial_state)
+        final_state: DebateState = result  # type: ignore[assignment]
 
         # Extract result
-        verdict = final_state.get("judge_verdict", {})
+        verdict: dict[str, Any] = final_state.get("judge_verdict") or {}
 
         # Calculate execution time
         start = final_state.get("start_time", "")
@@ -224,8 +227,8 @@ class MAD:
             execution_time = (end_dt - start_dt).total_seconds() * 1000
 
         return DebateResult(
-            verdict=verdict.get("verdict", final_state.get("final_answer", "")),
-            confidence=final_state.get("confidence_score", 0.5),
+            verdict=str(verdict.get("verdict", final_state.get("final_answer", ""))),
+            confidence=float(final_state.get("confidence_score") or 0.5),
             reasoning=verdict.get("reasoning", ""),
             consensus_points=verdict.get("consensus_points", []),
             dissenting_opinions=final_state.get("dissenting_opinions", []),
@@ -242,7 +245,7 @@ class MAD:
         self,
         topic: str,
         context: str | None = None,
-    ):
+    ) -> AsyncIterator[dict[str, Any]]:
         """Stream debate progress (yields intermediate states).
 
         Args:

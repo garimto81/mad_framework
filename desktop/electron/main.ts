@@ -19,10 +19,21 @@ if (customUserData) {
 
 const log = createScopedLogger('Main');
 
+// E2E 테스트를 위한 userData 경로 설정
+// --user-data-dir 인자가 전달되면 해당 경로를 사용하여 기존 로그인 세션 공유
+const userDataArg = process.argv.find(arg => arg.startsWith('--user-data-dir='));
+if (userDataArg) {
+  const userDataDir = userDataArg.split('=')[1];
+  app.setPath('userData', userDataDir);
+}
+
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 
 function createWindow() {
+  // 테스트 환경에서는 윈도우를 바로 표시 (Playwright 윈도우 감지 위해)
+  const isTest = process.env.NODE_ENV === 'test' || !!process.env.TEST_PROVIDER;
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -36,7 +47,7 @@ function createWindow() {
     },
     backgroundColor: '#111827', // gray-900
     titleBarStyle: 'hiddenInset',
-    show: false,
+    show: isTest, // 테스트 시 바로 표시
   });
 
   // Load the app

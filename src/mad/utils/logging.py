@@ -41,7 +41,7 @@ def setup_logging(
         processors.append(structlog.dev.ConsoleRenderer(colors=True))
 
     structlog.configure(
-        processors=processors,
+        processors=processors,  # type: ignore[arg-type]
         wrapper_class=structlog.make_filtering_bound_logger(getattr(logging, level.upper())),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
@@ -58,4 +58,4 @@ def get_logger(name: str) -> structlog.BoundLogger:
     Returns:
         Configured structlog logger.
     """
-    return structlog.get_logger(name)
+    return structlog.get_logger(name)  # type: ignore[no-any-return]

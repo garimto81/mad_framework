@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from mad.agents.base import AgentRole, BaseAgent
 from mad.core.state import DebateMessage, DebateState
@@ -65,6 +65,7 @@ When rendering your verdict, provide:
         Returns:
             DebateMessage with the verdict.
         """
+        assert self.provider is not None, "Judge requires a provider"
         messages = self._build_prompt(state)
 
         response = await self.provider.generate(
@@ -131,7 +132,7 @@ Ensure the JSON is valid and complete."""
 
         return messages
 
-    def parse_verdict(self, content: str) -> dict:
+    def parse_verdict(self, content: str) -> dict[str, Any]:
         """Parse the judge's verdict from response content.
 
         Args:
@@ -147,7 +148,8 @@ Ensure the JSON is valid and complete."""
 
             if start != -1 and end > start:
                 json_str = content[start:end]
-                return json.loads(json_str)
+                result: dict[str, Any] = json.loads(json_str)
+                return result
         except json.JSONDecodeError:
             pass
 

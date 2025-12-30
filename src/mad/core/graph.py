@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from mad.core.state import DebateState
 
@@ -19,7 +20,7 @@ def create_debate_graph(
     debaters: list[DebaterAgent],
     judge: JudgeAgent,
     moderator: ModeratorAgent | None = None,
-) -> StateGraph:
+) -> CompiledStateGraph[DebateState]:
     """Create a LangGraph StateGraph for debate orchestration.
 
     Args:
@@ -30,10 +31,10 @@ def create_debate_graph(
     Returns:
         Compiled StateGraph ready for execution.
     """
-    graph = StateGraph(DebateState)
+    graph: StateGraph[DebateState] = StateGraph(DebateState)
 
     # Node: Initialize debate
-    async def initialize_node(state: DebateState) -> dict:
+    async def initialize_node(state: DebateState) -> dict[str, Any]:
         """Initialize the debate state."""
         return {
             "phase": "debate",
@@ -42,7 +43,7 @@ def create_debate_graph(
         }
 
     # Node: Run debate round (all debaters)
-    async def debate_node(state: DebateState) -> dict:
+    async def debate_node(state: DebateState) -> dict[str, Any]:
         """Execute one round of debate with all debaters."""
         messages = []
         total_tokens = state.get("total_tokens", 0)
@@ -64,7 +65,7 @@ def create_debate_graph(
         }
 
     # Node: Moderator review
-    async def moderate_node(state: DebateState) -> dict:
+    async def moderate_node(state: DebateState) -> dict[str, Any]:
         """Moderator evaluates the round and decides whether to continue."""
         if moderator is None:
             # No moderator: continue until max rounds
@@ -104,7 +105,7 @@ def create_debate_graph(
         }
 
     # Node: Judge deliberation
-    async def judge_node(state: DebateState) -> dict:
+    async def judge_node(state: DebateState) -> dict[str, Any]:
         """Judge evaluates arguments and renders verdict."""
         message = await judge.act(state)
         verdict = judge.parse_verdict(message["content"])
@@ -153,4 +154,4 @@ def create_debate_graph(
     )
     graph.add_edge("judge", END)
 
-    return graph.compile()
+    return graph.compile()  # type: ignore[return-value]
