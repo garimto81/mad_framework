@@ -9,6 +9,8 @@ import type {
   DebateProgressExtended,
   DebateResponse,
   DebateResult,
+  DebateStateSnapshot,
+  DebateStartedEvent,
   DetailedStatus,
   ElementScoreUpdate,
   LLMLoginStatus,
@@ -100,6 +102,16 @@ export const ipc = {
 
   onDebateError: (callback: (error: { error: string }) => void): (() => void) => {
     return electronAPI.on('debate:error', callback as (...args: unknown[]) => void);
+  },
+
+  // Issue #34: debate:started 이벤트 (Controller에서 실제 세션 ID 전달)
+  onDebateStarted: (callback: (event: DebateStartedEvent) => void): (() => void) => {
+    return electronAPI.on('debate:started', callback as (...args: unknown[]) => void);
+  },
+
+  // Issue #34: debate:state-changed 이벤트 (Controller 상태 스냅샷)
+  onDebateStateChanged: (callback: (state: DebateStateSnapshot) => void): (() => void) => {
+    return electronAPI.on('debate:state-changed', callback as (...args: unknown[]) => void);
   },
 
   onLoginStatusChanged: (

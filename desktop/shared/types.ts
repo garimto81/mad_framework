@@ -142,3 +142,19 @@ export interface DebateResult {
   totalIterations: number;
   completedAt: string;
 }
+
+// Issue #34: Controller State Snapshot (Single Source of Truth)
+export interface DebateStateSnapshot {
+  debateId: string | null;
+  isRunning: boolean;
+  currentIteration: number;
+  currentProvider: LLMProvider | null;
+  status: 'idle' | 'starting' | 'running' | 'completed' | 'cancelled' | 'error';
+}
+
+// Issue #34: Debate Started Event (Controller → Store)
+export interface DebateStartedEvent {
+  sessionId: string;
+  config: DebateConfig;
+  createdAt: string;
+}

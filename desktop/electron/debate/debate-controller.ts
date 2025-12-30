@@ -11,6 +11,8 @@ import type {
   DebateProgressExtended,
   DebateResult,
   ElementScoreUpdate,
+  DebateStateSnapshot,
+  DebateStartedEvent,
 } from '../../shared/types';
 import type { BrowserViewManager } from '../browser/browser-view-manager';
 import type { CycleDetector } from './cycle-detector';
@@ -57,6 +59,8 @@ export class DebateController {
   private cancelled: boolean = false;
   private currentIteration: number = 0;
   private currentProvider: LLMProvider | null = null;
+  // Issue #34: 상태를 Single Source of Truth로 관리
+  private status: DebateStateSnapshot['status'] = 'idle';
 
   constructor(
     private browserManager: BrowserViewManager,
@@ -65,6 +69,22 @@ export class DebateController {
     private eventEmitter: EventEmitter,
     private progressLogger?: ProgressLogger
   ) {}
+
+  // Issue #34: 상태 스냅샷 조회
+  getStateSnapshot(): DebateStateSnapshot {
+    return {
+      debateId: this.debateId,
+      isRunning: this.isRunning(),
+      currentIteration: this.currentIteration,
+      currentProvider: this.currentProvider,
+      status: this.status,
+    };
+  }
+
+  // Issue #34: 상태 변경 시 이벤트 발행
+  private emitStateChanged(): void {
+    this.eventEmitter.emit('debate:state-changed', this.getStateSnapshot());
+  }
 
   // Issue #33: sleep 헬퍼
   private sleep(ms: number): Promise<void> {
@@ -89,6 +109,9 @@ export class DebateController {
     this.cancelled = false;
     this.currentIteration = 0;
     this.currentProvider = null;
+    // Issue #34: 상태 변경 및 이벤트 발행
+    this.status = 'starting';
+    this.emitStateChanged();
 
     // 로그 기록
     this.progressLogger?.logDebateStart(config.topic);
@@ -119,6 +142,18 @@ export class DebateController {
     // Create elements based on preset
     const elementNames = this.getElementNames(config.preset);
     await this.repository.createElements(this.debateId, elementNames);
+
+    // Issue #34: debate:started 이벤트 발행 (실제 세션 ID 전달)
+    const startedEvent: DebateStartedEvent = {
+      sessionId: this.debateId,
+      config,
+      createdAt: new Date().toISOString(),
+    };
+    this.eventEmitter.emit('debate:started', startedEvent);
+
+    // Issue #34: 상태를 running으로 변경
+    this.status = 'running';
+    this.emitStateChanged();
 
     let iteration = 0;
     let participantIndex = 0;
@@ -198,11 +233,11 @@ export class DebateController {
     }
 
     // Determine final status
-    let finalStatus = 'completed';
+    let finalStatus: DebateStateSnapshot['status'] = 'completed';
     if (this.cancelled) {
       finalStatus = 'cancelled';
     } else if (iteration >= MAX_ITERATIONS) {
-      finalStatus = 'max_iterations';
+      finalStatus = 'error';
       console.error(`[Debate] Reached maximum iterations (${MAX_ITERATIONS})`);
     } else if (consecutiveEmptyResponses >= MAX_CONSECUTIVE_EMPTY_RESPONSES) {
       finalStatus = 'error';
@@ -220,14 +255,19 @@ export class DebateController {
       completedAt: new Date().toISOString(),
     } as DebateResult);
 
-    // 상태 리셋
+    // Issue #34: 상태 리셋 및 이벤트 발행
+    this.status = finalStatus;
     this.currentIteration = 0;
     this.currentProvider = null;
     this.debateId = null;
+    this.emitStateChanged();
   }
 
   cancel(): void {
     this.cancelled = true;
+    // Issue #34: 취소 시 상태 변경
+    this.status = 'cancelled';
+    this.emitStateChanged();
   }
 
   private getElementNames(preset: string): string[] {
