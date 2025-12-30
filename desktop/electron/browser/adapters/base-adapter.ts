@@ -10,6 +10,20 @@
 import type { LLMProvider, AdapterResult, AdapterErrorCode } from '../../../shared/types';
 import type { WebContents, SelectorSet, ProviderSelectors, AdapterSelectors } from './types';
 import { getBaseUrl, getDefaultSelectors, getSelectorSets } from './selector-config';
+import {
+  INPUT_READY_TIMEOUT,
+  RESPONSE_TIMEOUT,
+  TYPING_START_TIMEOUT,
+  TYPING_FINISH_MIN_TIMEOUT,
+  CONDITION_CHECK_INTERVAL,
+  TYPING_START_CHECK_INTERVAL,
+  TYPING_START_MAX_ATTEMPTS,
+  TYPING_FINISH_MAX_ATTEMPTS,
+  DEFAULT_MAX_ATTEMPTS,
+  DOM_STABILIZATION_DELAY,
+  MAX_BACKOFF_INTERVAL,
+  MIN_RESPONSE_LENGTH,
+} from '../../constants';
 
 export class BaseLLMAdapter {
   readonly provider: LLMProvider;
@@ -104,14 +118,14 @@ export class BaseLLMAdapter {
     }
   }
 
-  async prepareInput(timeout: number = 10000): Promise<AdapterResult> {
+  async prepareInput(timeout: number = INPUT_READY_TIMEOUT): Promise<AdapterResult> {
     const isReady = await this.waitForCondition(
       async () => {
         // Issue #18: Use fallback selectors for input check
         const selector = await this.findElement(this.selectorSets.inputTextarea);
         return selector !== null;
       },
-      { timeout, interval: 500, description: 'input to be ready' }
+      { timeout, interval: CONDITION_CHECK_INTERVAL, description: 'input to be ready' }
     );
 
     if (!isReady) {
@@ -225,13 +239,13 @@ export class BaseLLMAdapter {
     }
   }
 
-  async awaitResponse(timeout: number = 120000): Promise<AdapterResult> {
+  async awaitResponse(timeout: number = RESPONSE_TIMEOUT): Promise<AdapterResult> {
     console.log(`[${this.provider}] awaitResponse started, timeout: ${timeout}ms`);
 
-    // Step 1: Wait for typing to start (max 10 seconds)
+    // Step 1: Wait for typing to start
     const typingStarted = await this.waitForCondition(
       () => this.isWriting(),
-      { timeout: 10000, interval: 300, maxAttempts: 30, description: 'typing to start' }
+      { timeout: TYPING_START_TIMEOUT, interval: TYPING_START_CHECK_INTERVAL, maxAttempts: TYPING_START_MAX_ATTEMPTS, description: 'typing to start' }
     );
 
     if (!typingStarted) {
@@ -245,13 +259,13 @@ export class BaseLLMAdapter {
     }
 
     // Step 2: Wait for typing to finish with reasonable limits
-    const remainingTimeout = Math.max(timeout - 10000, 5000);
+    const remainingTimeout = Math.max(timeout - TYPING_START_TIMEOUT, TYPING_FINISH_MIN_TIMEOUT);
     const typingFinished = await this.waitForCondition(
       async () => !(await this.isWriting()),
       {
         timeout: remainingTimeout,
-        interval: 500,
-        maxAttempts: 120, // 최대 120회 (약 60초 @500ms)
+        interval: CONDITION_CHECK_INTERVAL,
+        maxAttempts: TYPING_FINISH_MAX_ATTEMPTS,
         description: 'typing to finish',
       }
     );
@@ -270,7 +284,7 @@ export class BaseLLMAdapter {
     }
 
     // Step 3: DOM stabilization delay
-    await this.sleep(1000);
+    await this.sleep(DOM_STABILIZATION_DELAY);
     console.log(`[${this.provider}] Response complete`);
     return this.success();
   }
@@ -284,8 +298,8 @@ export class BaseLLMAdapter {
 
     const content = result.data.trim();
 
-    // 최소 길이 체크 (5자 이상)
-    if (content.length <= 5) {
+    // 최소 길이 체크
+    if (content.length <= MIN_RESPONSE_LENGTH) {
       console.log(`[${this.provider}] hasValidResponse: too short (${content.length})`);
       return false;
     }
@@ -337,7 +351,7 @@ export class BaseLLMAdapter {
     return result.success && result.data === true;
   }
 
-  async waitForInputReady(timeout: number = 10000): Promise<void> {
+  async waitForInputReady(timeout: number = INPUT_READY_TIMEOUT): Promise<void> {
     const result = await this.prepareInput(timeout);
     if (!result.success) {
       throw new Error(result.error?.message || `Input not ready for ${this.provider}`);
@@ -358,7 +372,7 @@ export class BaseLLMAdapter {
     }
   }
 
-  async waitForResponse(timeout: number = 120000): Promise<void> {
+  async waitForResponse(timeout: number = RESPONSE_TIMEOUT): Promise<void> {
     const result = await this.awaitResponse(timeout);
     if (!result.success) {
       throw new Error(result.error?.message || `Response timeout for ${this.provider}`);
@@ -446,7 +460,7 @@ export class BaseLLMAdapter {
     }
   ): Promise<boolean> {
     const startTime = Date.now();
-    const maxAttempts = options.maxAttempts || 60; // 기본 60회 (30초 @500ms)
+    const maxAttempts = options.maxAttempts || DEFAULT_MAX_ATTEMPTS;
     let attempts = 0;
 
     while (Date.now() - startTime < options.timeout && attempts < maxAttempts) {
@@ -463,7 +477,7 @@ export class BaseLLMAdapter {
       // Progressive backoff: 처음 10회는 빠르게, 이후 점점 느리게
       const backoffInterval = attempts <= 10
         ? options.interval
-        : Math.min(options.interval * 2, 2000);
+        : Math.min(options.interval * 2, MAX_BACKOFF_INTERVAL);
 
       await this.sleep(backoffInterval);
     }

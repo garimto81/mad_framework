@@ -15,6 +15,12 @@ import type {
 import type { BrowserViewManager } from '../browser/browser-view-manager';
 import type { CycleDetector } from './cycle-detector';
 import type { ProgressLogger } from './progress-logger';
+import {
+  MAX_ITERATIONS,
+  MAX_CONSECUTIVE_EMPTY_RESPONSES,
+  RETRY_DELAY_MS,
+  LONG_RESPONSE_THRESHOLD,
+} from '../constants';
 
 interface DebateRepository {
   create: (data: any) => Promise<string>;
@@ -44,10 +50,7 @@ const PRESET_ELEMENTS: Record<string, string[]> = {
   decision: ['장점', '단점', '위험', '기회'],
 };
 
-// Circuit Breaker 상수
-const MAX_ITERATIONS = 100;
-const MAX_CONSECUTIVE_EMPTY_RESPONSES = 5; // Issue #33: 3→5 증가 (일시적 빈 응답 허용)
-const RETRY_DELAY_MS = 2000; // Issue #33: 빈 응답 시 재시도 전 대기 시간
+// Circuit Breaker 상수는 ../constants.ts에서 import
 
 export class DebateController {
   private debateId: string | null = null;
@@ -303,9 +306,9 @@ export class DebateController {
       if (scores.length === 0) {
         console.warn(`[Debate] No scores parsed from response at iteration ${iteration}`);
 
-        // 응답이 200자 이상이면 LLM이 형식 없이 응답한 것으로 간주
+        // 응답이 LONG_RESPONSE_THRESHOLD자 이상이면 LLM이 형식 없이 응답한 것으로 간주
         // → 에러가 아닌 경고로 처리하고 다음 iteration에서 재요청
-        if (response.trim().length >= 200) {
+        if (response.trim().length >= LONG_RESPONSE_THRESHOLD) {
           console.log(`[Debate] Long response without parseable scores, will retry next iteration`);
           this.eventEmitter.emit('debate:response', {
             sessionId: this.debateId,

@@ -16,6 +16,7 @@ import { CycleDetector } from '../debate/cycle-detector';
 import { InMemoryRepository } from '../debate/in-memory-repository';
 import { ProgressLogger } from '../debate/progress-logger';
 import { createScopedLogger } from '../utils/logger';
+import { BROWSER_VIEW_CREATION_DELAY, PROVIDER_CREATION_DELAY } from '../constants';
 
 const log = createScopedLogger('IPC');
 
@@ -253,14 +254,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     // 1. 테스트 메시지 전송
     log.debug(`Sending test message to ${provider}...`);
     await adapter.enterPrompt('Say "Hello" and nothing else.');
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, BROWSER_VIEW_CREATION_DELAY));
     await adapter.submitMessage();
 
     // 2. 스트리밍 시작 대기 후 DOM 캡처 (여러 번)
     const captures: unknown[] = [];
 
     for (let i = 0; i < 5; i++) {
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, PROVIDER_CREATION_DELAY));
 
       const snapshot = await webContents.executeJavaScript(`
         (() => {
