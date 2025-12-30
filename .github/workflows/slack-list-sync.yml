@@ -1,0 +1,462 @@
+name: Slack List Sync
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write  # Checklist 자동 체크 커밋용
+
+env:
+  SLACK_USER_TOKEN: ${{ secrets.SLACK_USER_TOKEN }}
+  SLACK_LIST_ID: ${{ secrets.SLACK_LIST_ID }}
+
+jobs:
+  update-slack-list:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 0: Checkout (Checklist 문서 접근 필요)
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 1: PRD ID, Issue 번호, 레포 이름 추출
+      - name: Extract PRD ID, Issue Number, and Repo Name
+        id: extract_ids
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          BRANCH_NAME="${{ github.head_ref }}"
+          PR_NUM="${{ github.event.pull_request.number }}"
+          FULL_REPO="${{ github.repository }}"
+          PR_BODY=$(cat << 'EOFBODY'
+          ${{ github.event.pull_request.body }}
+          EOFBODY
+          )
+
+          # 0. 레포 이름 추출 (owner 제거)
+          REPO_NAME=$(echo "$FULL_REPO" | cut -d'/' -f2)
+
+          # 1. PRD ID 추출 (우선순위: 제목 > 브랜치 > 본문)
+          PRD_ID=""
+
+          # PR 제목에서 [PRD-NNNN] 추출
+          PRD_ID=$(echo "$PR_TITLE" | grep -oE '\[PRD-[0-9]+\]' | tr -d '[]' | head -1)
+
+          # 없으면 브랜치명에서 PRD-NNNN 추출
+          if [ -z "$PRD_ID" ]; then
+            PRD_ID=$(echo "$BRANCH_NAME" | grep -oE 'PRD-[0-9]+' | head -1)
+          fi
+
+          # 없으면 PR 본문에서 Checklist: 라인 파싱
+          if [ -z "$PRD_ID" ]; then
+            PRD_ID=$(echo "$PR_BODY" | grep -oE 'Checklist:.*PRD-[0-9]+' | grep -oE 'PRD-[0-9]+' | head -1)
+          fi
+
+          # 2. Issue 번호 추출
+          ISSUE_NUM=$(echo "$PR_TITLE" | grep -oE '#[0-9]+' | head -1 | tr -d '#')
+          if [ -z "$ISSUE_NUM" ]; then
+            ISSUE_NUM=$(echo "$BRANCH_NAME" | grep -oE '[0-9]+' | head -1)
+          fi
+
+          echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
+          echo "prd_id=$PRD_ID" >> $GITHUB_OUTPUT
+          echo "issue_number=$ISSUE_NUM" >> $GITHUB_OUTPUT
+          echo "pr_number=$PR_NUM" >> $GITHUB_OUTPUT
+          echo "pr_title=$PR_TITLE" >> $GITHUB_OUTPUT
+
+          echo "Repository: $REPO_NAME"
+          echo "Extracted PRD ID: $PRD_ID"
+          echo "Extracted Issue Number: $ISSUE_NUM"
+          echo "PR Number: $PR_NUM"
+
+      # Step 2: Checklist 문서 경로 탐색
+      - name: Find Checklist Document
+        id: find_checklist
+        run: |
+          PRD_ID="${{ steps.extract_ids.outputs.prd_id }}"
+          CHECKLIST_PATH=""
+          SOURCE="none"
+
+          if [ -n "$PRD_ID" ]; then
+            PRD_NUM=$(echo "$PRD_ID" | grep -oE '[0-9]+')
+
+            # 우선순위 1: docs/checklists/PRD-NNNN.md
+            if [ -f "docs/checklists/$PRD_ID.md" ]; then
+              CHECKLIST_PATH="docs/checklists/$PRD_ID.md"
+              SOURCE="document"
+            # 우선순위 2: tasks/prds/NNNN-prd-*.md
+            elif ls tasks/prds/${PRD_NUM}-prd-*.md 1>/dev/null 2>&1; then
+              CHECKLIST_PATH=$(ls tasks/prds/${PRD_NUM}-prd-*.md | head -1)
+              SOURCE="document"
+            # 우선순위 3: docs/PRD-NNNN-*.md
+            elif ls docs/$PRD_ID-*.md 1>/dev/null 2>&1; then
+              CHECKLIST_PATH=$(ls docs/$PRD_ID-*.md | head -1)
+              SOURCE="document"
+            # 우선순위 4: docs/CHECKLIST.md
+            elif [ -f "docs/CHECKLIST.md" ]; then
+              CHECKLIST_PATH="docs/CHECKLIST.md"
+              SOURCE="document"
+            fi
+          fi
+
+          echo "checklist_path=$CHECKLIST_PATH" >> $GITHUB_OUTPUT
+          echo "source=$SOURCE" >> $GITHUB_OUTPUT
+          echo "Found Checklist: $CHECKLIST_PATH (source: $SOURCE)"
+
+      # Step 3: Checklist 문서 파싱 (문서가 있을 때)
+      - name: Parse Checklist Document
+        id: parse_doc
+        if: steps.find_checklist.outputs.source == 'document'
+        run: |
+          CHECKLIST_PATH="${{ steps.find_checklist.outputs.checklist_path }}"
+
+          # 리스트 형식 (- [ ]) + 테이블 형식 (| [ ] |) 모두 지원
+          TOTAL=$(grep -cE '^\s*[-|]\s*\[[ xX]\]' "$CHECKLIST_PATH" 2>/dev/null || echo 0)
+          DONE=$(grep -cE '^\s*[-|]\s*\[[xX]\]' "$CHECKLIST_PATH" 2>/dev/null || echo 0)
+
+          if [ "$TOTAL" -gt 0 ]; then
+            PROGRESS=$((DONE * 100 / TOTAL))
+          else
+            PROGRESS=100
+          fi
+
+          # 진행중 항목 추출 (최대 5개)
+          PENDING=$(grep -E '^\s*[-|]\s*\[ \]' "$CHECKLIST_PATH" 2>/dev/null | sed 's/^\s*[-|]\s*\[ \]\s*/• /' | head -5)
+          PENDING_COUNT=$(grep -cE '^\s*[-|]\s*\[ \]' "$CHECKLIST_PATH" 2>/dev/null || echo 0)
+
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "done=$DONE" >> $GITHUB_OUTPUT
+          echo "progress=$PROGRESS" >> $GITHUB_OUTPUT
+          echo "pending_count=$PENDING_COUNT" >> $GITHUB_OUTPUT
+          {
+            echo 'pending<<EOF'
+            echo "$PENDING"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+          echo "Document Parsing: $DONE/$TOTAL ($PROGRESS%)"
+
+      # Step 4: PR 본문 Checklist 파싱 (Fallback)
+      - name: Parse PR Body Checklist (Fallback)
+        id: parse_pr
+        if: steps.find_checklist.outputs.source != 'document'
+        run: |
+          PR_BODY=$(cat << 'EOFBODY'
+          ${{ github.event.pull_request.body }}
+          EOFBODY
+          )
+
+          TOTAL=$(echo "$PR_BODY" | grep -cE '^\s*-\s*\[[ xX]\]' || echo 0)
+          DONE=$(echo "$PR_BODY" | grep -cE '^\s*-\s*\[[xX]\]' || echo 0)
+
+          if [ "$TOTAL" -gt 0 ]; then
+            PROGRESS=$((DONE * 100 / TOTAL))
+          else
+            PROGRESS=100
+          fi
+
+          PENDING=$(echo "$PR_BODY" | grep -E '^\s*-\s*\[ \]' | sed 's/^\s*-\s*\[ \]\s*/• /' | head -5)
+          PENDING_COUNT=$(echo "$PR_BODY" | grep -cE '^\s*-\s*\[ \]' || echo 0)
+
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "done=$DONE" >> $GITHUB_OUTPUT
+          echo "progress=$PROGRESS" >> $GITHUB_OUTPUT
+          echo "pending_count=$PENDING_COUNT" >> $GITHUB_OUTPUT
+          {
+            echo 'pending<<EOF'
+            echo "$PENDING"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+          echo "PR Body Parsing (Fallback): $DONE/$TOTAL ($PROGRESS%)"
+
+      # Step 5: 자동 체크 - Issue 번호 매칭 항목 업데이트
+      - name: Auto-check Matching Items
+        id: auto_check
+        if: steps.find_checklist.outputs.source == 'document'
+        run: |
+          ISSUE_NUM="${{ steps.extract_ids.outputs.issue_number }}"
+          CHECKLIST_PATH="${{ steps.find_checklist.outputs.checklist_path }}"
+
+          echo "Auto-checking items with Issue #$ISSUE_NUM in $CHECKLIST_PATH"
+
+          if [ -n "$ISSUE_NUM" ]; then
+            # Issue 번호와 매칭되는 미완료 항목 체크
+            # 리스트 형식: - [ ] 항목 (#123)
+            sed -i "s/- \[ \] \(.*\)(#$ISSUE_NUM)/- [x] \1(#$ISSUE_NUM)/g" "$CHECKLIST_PATH"
+
+            # 테이블 형식: | [ ] | 항목 | #123 |
+            sed -i "s/| \[ \] |/| [x] |/g" "$CHECKLIST_PATH"
+          fi
+
+          # 변경 확인
+          if git diff --quiet "$CHECKLIST_PATH"; then
+            echo "updated=false" >> $GITHUB_OUTPUT
+            echo "No changes to commit"
+          else
+            echo "updated=true" >> $GITHUB_OUTPUT
+            echo "Changes detected, will commit"
+          fi
+
+      # Step 6: 변경된 Checklist 커밋
+      - name: Commit Checklist Updates
+        if: steps.auto_check.outputs.updated == 'true'
+        run: |
+          CHECKLIST_PATH="${{ steps.find_checklist.outputs.checklist_path }}"
+          ISSUE_NUM="${{ steps.extract_ids.outputs.issue_number }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add "$CHECKLIST_PATH"
+          git commit -m "chore: auto-check checklist for #$ISSUE_NUM
+
+          Generated with [Claude Code](https://claude.ai/code)"
+
+          git push
+
+          echo "Committed checklist update for #$ISSUE_NUM"
+
+      # Step 7: 최종 진행률 계산 (자동 체크 후 재파싱)
+      - name: Calculate Final Progress
+        id: final_progress
+        run: |
+          SOURCE="${{ steps.find_checklist.outputs.source }}"
+          CHECKLIST_PATH="${{ steps.find_checklist.outputs.checklist_path }}"
+
+          if [ "$SOURCE" == "document" ] && [ -n "$CHECKLIST_PATH" ]; then
+            # 자동 체크 후 재파싱
+            TOTAL=$(grep -cE '^\s*[-|]\s*\[[ xX]\]' "$CHECKLIST_PATH" 2>/dev/null || echo 0)
+            DONE=$(grep -cE '^\s*[-|]\s*\[[xX]\]' "$CHECKLIST_PATH" 2>/dev/null || echo 0)
+
+            if [ "$TOTAL" -gt 0 ]; then
+              PROGRESS=$((DONE * 100 / TOTAL))
+            else
+              PROGRESS=100
+            fi
+
+            PENDING=$(grep -E '^\s*[-|]\s*\[ \]' "$CHECKLIST_PATH" 2>/dev/null | sed 's/^\s*[-|]\s*\[ \]\s*/• /' | head -5)
+            PENDING_COUNT=$(grep -cE '^\s*[-|]\s*\[ \]' "$CHECKLIST_PATH" 2>/dev/null || echo 0)
+          else
+            # Fallback 결과 사용
+            TOTAL="${{ steps.parse_pr.outputs.total }}"
+            DONE="${{ steps.parse_pr.outputs.done }}"
+            PROGRESS="${{ steps.parse_pr.outputs.progress }}"
+            PENDING_COUNT="${{ steps.parse_pr.outputs.pending_count }}"
+            PENDING=$(cat << 'EOFPENDING'
+          ${{ steps.parse_pr.outputs.pending }}
+          EOFPENDING
+          )
+          fi
+
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "done=$DONE" >> $GITHUB_OUTPUT
+          echo "progress=$PROGRESS" >> $GITHUB_OUTPUT
+          echo "pending_count=$PENDING_COUNT" >> $GITHUB_OUTPUT
+          {
+            echo 'pending<<EOF'
+            echo "$PENDING"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+          echo "Final Progress: $DONE/$TOTAL ($PROGRESS%)"
+
+      # Step 8: Slack List Item 조회 (레포 이름으로 검색)
+      - name: Get Slack List Item ID
+        id: get_item
+        run: |
+          RESPONSE=$(curl -s -X POST "https://slack.com/api/slackLists.items.list" \
+            -H "Authorization: Bearer $SLACK_USER_TOKEN" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "list_id=$SLACK_LIST_ID")
+
+          REPO_NAME="${{ steps.extract_ids.outputs.repo_name }}"
+
+          # 제목 Column (Col0A4WG2LPHA)에서 레포 이름으로 검색
+          ITEM_ID=$(echo "$RESPONSE" | jq -r --arg repo "$REPO_NAME" \
+            '.items[] | select(
+              .fields[] | select(.column_id == "Col0A4WG2LPHA") | .text == $repo
+            ) | .id' | head -1)
+
+          echo "item_id=$ITEM_ID" >> $GITHUB_OUTPUT
+          echo "Found item for repo '$REPO_NAME': $ITEM_ID"
+
+      # Step 9: Slack List Item 생성 (없을 경우)
+      - name: Create Slack List Item (if not exists)
+        id: create_item
+        if: steps.get_item.outputs.item_id == ''
+        run: |
+          REPO_NAME="${{ steps.extract_ids.outputs.repo_name }}"
+
+          # 항목 생성
+          RESPONSE=$(curl -s -X POST "https://slack.com/api/slackLists.items.create" \
+            -H "Authorization: Bearer $SLACK_USER_TOKEN" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            -d "{
+              \"list_id\": \"$SLACK_LIST_ID\",
+              \"item\": {
+                \"fields\": {}
+              }
+            }")
+
+          echo "API Response: $RESPONSE"
+
+          NEW_ITEM_ID=$(echo "$RESPONSE" | jq -r '.item.id // empty')
+
+          # 제목 Column에 레포 이름 설정
+          if [ -n "$NEW_ITEM_ID" ]; then
+            curl -s -X POST "https://slack.com/api/slackLists.items.update" \
+              -H "Authorization: Bearer $SLACK_USER_TOKEN" \
+              -H "Content-Type: application/json; charset=utf-8" \
+              -d "{
+                \"list_id\": \"$SLACK_LIST_ID\",
+                \"cells\": [{
+                  \"row_id\": \"$NEW_ITEM_ID\",
+                  \"column_id\": \"Col0A4WG2LPHA\",
+                  \"rich_text\": [{
+                    \"type\": \"rich_text\",
+                    \"elements\": [{
+                      \"type\": \"rich_text_section\",
+                      \"elements\": [{
+                        \"type\": \"text\",
+                        \"text\": \"$REPO_NAME\"
+                      }]
+                    }]
+                  }]
+                }]
+              }"
+          fi
+
+          echo "item_id=$NEW_ITEM_ID" >> $GITHUB_OUTPUT
+          echo "Created new item for repo '$REPO_NAME': $NEW_ITEM_ID"
+
+      # Step 10: 프로그레스 바 생성
+      - name: Build Progress Bar
+        id: progress_bar
+        run: |
+          PROGRESS="${{ steps.final_progress.outputs.progress }}"
+          TOTAL="${{ steps.final_progress.outputs.total }}"
+          DONE="${{ steps.final_progress.outputs.done }}"
+          PENDING_COUNT="${{ steps.final_progress.outputs.pending_count }}"
+
+          # Checklist가 있는 경우만 프로그레스 바 생성
+          if [ "$TOTAL" -gt 0 ]; then
+            # 10칸 프로그레스 바 생성
+            FILLED=$((PROGRESS / 10))
+            EMPTY=$((10 - FILLED))
+
+            BAR=""
+            for i in $(seq 1 $FILLED); do BAR+="█"; done
+            for i in $(seq 1 $EMPTY); do BAR+="░"; done
+
+            PROGRESS_BAR="$BAR $PROGRESS% ($DONE/$TOTAL)"
+
+            # 비고 필드용 텍스트 (진행중인 항목만)
+            if [ "$PENDING_COUNT" -eq 0 ]; then
+              NOTE_TEXT="All completed!"
+            else
+              PENDING_ITEMS=$(cat << 'EOFPENDING'
+          ${{ steps.final_progress.outputs.pending }}
+          EOFPENDING
+          )
+              if [ "$PENDING_COUNT" -gt 5 ]; then
+                EXTRA=$((PENDING_COUNT - 5))
+                NOTE_TEXT="In progress:\n$PENDING_ITEMS\n• +${EXTRA} more"
+              else
+                NOTE_TEXT="In progress:\n$PENDING_ITEMS"
+              fi
+            fi
+          else
+            # Checklist 미작성 시 N/A 표시
+            PROGRESS_BAR="N/A"
+            PR_TITLE="${{ steps.extract_ids.outputs.pr_title }}"
+            NOTE_TEXT="$PR_TITLE"
+          fi
+
+          echo "progress_bar=$PROGRESS_BAR" >> $GITHUB_OUTPUT
+          {
+            echo 'note<<EOF'
+            echo "$NOTE_TEXT"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+      # Step 10.5: 현재 날짜 생성 (KST)
+      - name: Get Current Date (KST)
+        id: current_date
+        run: |
+          # KST (Asia/Seoul) 기준 날짜
+          CURRENT_DATE=$(TZ=Asia/Seoul date +"%Y-%m-%d")
+          echo "date=$CURRENT_DATE" >> $GITHUB_OUTPUT
+          echo "Current date (KST): $CURRENT_DATE"
+
+      # Step 11: Slack List 업데이트
+      - name: Update Slack List Item
+        if: steps.get_item.outputs.item_id != '' || steps.create_item.outputs.item_id != ''
+        run: |
+          # 기존 항목 또는 새로 생성된 항목 ID 사용
+          ITEM_ID="${{ steps.get_item.outputs.item_id }}"
+          if [ -z "$ITEM_ID" ]; then
+            ITEM_ID="${{ steps.create_item.outputs.item_id }}"
+          fi
+
+          # 진행률 필드용 프로그레스 바
+          PROGRESS_BAR="${{ steps.progress_bar.outputs.progress_bar }}"
+
+          # 비고 필드 내용 구성
+          NOTE_TEXT=$(cat << 'EOFNOTE'
+          ${{ steps.progress_bar.outputs.note }}
+          EOFNOTE
+          )
+
+          # JSON 이스케이프 (줄바꿈, 따옴표)
+          NOTE_JSON=$(echo "$NOTE_TEXT" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+
+          # 현재 날짜 (KST)
+          CURRENT_DATE="${{ steps.current_date.outputs.date }}"
+
+          # 진행률(프로그레스 바) + 비고(진행중 항목) + 마지막 업데이트 업데이트
+          curl -s -X POST "https://slack.com/api/slackLists.items.update" \
+            -H "Authorization: Bearer $SLACK_USER_TOKEN" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            -d "{
+              \"list_id\": \"$SLACK_LIST_ID\",
+              \"cells\": [
+                {
+                  \"row_id\": \"$ITEM_ID\",
+                  \"column_id\": \"Col0A55RYJHEV\",
+                  \"rich_text\": [{
+                    \"type\": \"rich_text\",
+                    \"elements\": [{
+                      \"type\": \"rich_text_section\",
+                      \"elements\": [{
+                        \"type\": \"text\",
+                        \"text\": \"$PROGRESS_BAR\"
+                      }]
+                    }]
+                  }]
+                },
+                {
+                  \"row_id\": \"$ITEM_ID\",
+                  \"column_id\": \"Col0A4WG5SFD2\",
+                  \"rich_text\": [{
+                    \"type\": \"rich_text\",
+                    \"elements\": [{
+                      \"type\": \"rich_text_section\",
+                      \"elements\": [{
+                        \"type\": \"text\",
+                        \"text\": \"$NOTE_JSON\"
+                      }]
+                    }]
+                  }]
+                },
+                {
+                  \"row_id\": \"$ITEM_ID\",
+                  \"column_id\": \"Col0A4ZL4THPU\",
+                  \"date\": [\"$CURRENT_DATE\"]
+                }
+              ]
+            }"
