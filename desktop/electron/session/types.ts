@@ -60,6 +60,22 @@ export interface ExportOptions {
 }
 
 /**
+ * 부분 내보내기 옵션 (P2)
+ */
+export interface PartialExportOptions extends ExportOptions {
+  /** 특정 iteration만 내보내기 */
+  iterations?: number[];
+  /** 특정 provider만 내보내기 */
+  providers?: LLMProvider[];
+  /** 특정 role만 내보내기 */
+  roles?: ('user' | 'assistant')[];
+  /** 시작 시간 필터 */
+  fromTime?: string;
+  /** 종료 시간 필터 */
+  toTime?: string;
+}
+
+/**
  * JSON 내보내기 결과
  */
 export interface JsonExportResult {
