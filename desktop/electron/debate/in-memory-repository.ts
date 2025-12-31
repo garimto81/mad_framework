@@ -34,7 +34,7 @@ interface ElementVersionData {
   iteration: number;
   score: number;
   content: string;
-  provider: string;
+  provider: LLMProvider;
   timestamp: string;
 }
 
@@ -83,7 +83,7 @@ export class InMemoryRepository {
     score: number,
     iteration: number,
     content: string,
-    provider: string
+    provider: LLMProvider
   ): Promise<void> {
     const element = this.elements.get(elementId);
     if (element) {

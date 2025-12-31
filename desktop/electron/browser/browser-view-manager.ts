@@ -84,7 +84,7 @@ export class BrowserViewManager {
       view = {
         webContents: {
           loadURL: () => {},
-          executeJavaScript: async () => '',
+          executeJavaScript: async <T>(): Promise<T> => '' as unknown as T,
           on: () => {},
           getURL: () => '',
         },

@@ -43,8 +43,9 @@ interface DebateCreateData {
 interface ElementVersion {
   score: number;
   content: string;
-  provider: string;
+  provider: LLMProvider;
   iteration: number;
+  timestamp: string;
 }
 
 interface DebateRepository {
@@ -55,7 +56,7 @@ interface DebateRepository {
     score: number,
     iteration: number,
     content: string,
-    provider: string
+    provider: LLMProvider
   ) => Promise<void>;
   markElementComplete: (elementId: string, reason: 'threshold' | 'cycle') => Promise<void>;
   getLast3Versions: (elementId: string) => Promise<ElementVersion[]>;

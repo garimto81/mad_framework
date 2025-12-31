@@ -419,7 +419,7 @@ export class AdaptiveTimeoutManager {
    * 기록 JSON 내보내기
    */
   exportHistory(): string {
-    const data: Record<LLMProvider, ResponseTimeRecord[]> = {};
+    const data: Partial<Record<LLMProvider, ResponseTimeRecord[]>> = {};
 
     this.history.forEach((records, provider) => {
       data[provider] = records;
