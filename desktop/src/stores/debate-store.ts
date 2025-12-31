@@ -75,10 +75,22 @@ export const useDebateStore = create<DebateState>((set, get) => ({
     // isRunning은 handleStateChanged에서 Controller 상태 기반으로 설정됨
 
     try {
-      await ipc.debate.start(config);
-      // 세션 정보는 handleStarted에서 설정됨
+      const result = await ipc.debate.start(config);
+
+      // IPC 호출은 성공했지만 비즈니스 로직에서 실패한 경우
+      if (result && 'success' in result && !result.success) {
+        const errorMsg = result.error || 'Debate start failed';
+        set({ error: errorMsg, isRunning: false });
+        console.error('[DebateStore] startDebate failed:', errorMsg);
+        return;
+      }
+
+      // 성공 시 세션 정보는 handleStarted에서 설정됨
     } catch (error) {
-      set({ error: String(error), isRunning: false });
+      // IPC 호출 자체가 실패한 경우
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      set({ error: errorMsg, isRunning: false });
+      console.error('[DebateStore] startDebate error:', error);
     }
   },
 

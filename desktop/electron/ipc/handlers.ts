@@ -134,11 +134,37 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
       mode: 'debate',
     });
 
+    // Validate login status before starting debate
+    try {
+      const loginStatus = await browserManager!.checkLoginStatus();
+      for (const participant of config.participants) {
+        if (!loginStatus[participant]?.isLoggedIn) {
+          const errorMsg = `Not logged in: ${participant}`;
+          log.error(errorMsg);
+          return { success: false, error: errorMsg };
+        }
+      }
+      // Also check judge provider
+      if (!loginStatus[config.judgeProvider]?.isLoggedIn) {
+        const errorMsg = `Judge not logged in: ${config.judgeProvider}`;
+        log.error(errorMsg);
+        return { success: false, error: errorMsg };
+      }
+    } catch (error) {
+      const errorMsg = `Login check failed: ${String(error)}`;
+      log.error(errorMsg);
+      return { success: false, error: errorMsg };
+    }
+
     // Start debate (runs in background)
     log.info('Starting debate controller...');
     debateController.start(config).catch((error) => {
       log.error('Debate Error:', error);
-      eventEmitter.emit('debate:error', { error: String(error) });
+      eventEmitter.emit('debate:error', {
+        error: String(error),
+        code: 'DEBATE_START_FAILED',
+        timestamp: new Date().toISOString(),
+      });
     });
 
     log.info('debate:start returning success');

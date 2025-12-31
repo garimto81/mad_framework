@@ -3,6 +3,7 @@ import { useDebateStore } from './stores/debate-store';
 import { useLoginStore } from './stores/login-store';
 import { useBrowserStore } from './stores/browser-store';
 import { MainLayout } from './layouts/MainLayout';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function App() {
   const { initializeIPC } = useDebateStore();
@@ -17,7 +18,11 @@ function App() {
     // Login status will be auto-checked by main process after BrowserViews load
   }, [initializeIPC, initializeLoginListener, initializeBrowserListener]);
 
-  return <MainLayout />;
+  return (
+    <ErrorBoundary>
+      <MainLayout />
+    </ErrorBoundary>
+  );
 }
 
 export default App;
