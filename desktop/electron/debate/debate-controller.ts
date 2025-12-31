@@ -25,6 +25,11 @@ import {
   RETRY_DELAY_MS,
   LONG_RESPONSE_THRESHOLD,
 } from '../constants';
+import {
+  circuitBreakerManager,
+  type CircuitBreaker,
+  type CircuitState,
+} from '../utils/circuit-breaker';
 
 interface DebateCreateData {
   topic: string;
@@ -87,7 +92,12 @@ export class DebateController {
     private eventEmitter: EventEmitter,
     private progressLogger?: ProgressLogger,
     private sessionRecorder?: SessionRecorder
-  ) {}
+  ) {
+    // Issue #45: Circuit Breaker 상태 변경 이벤트 연결
+    circuitBreakerManager.onAnyStateChange((event) => {
+      this.eventEmitter.emit('circuit-breaker:state-changed', event);
+    });
+  }
 
   // Issue #34: 상태 스냅샷 조회
   getStateSnapshot(): DebateStateSnapshot {
@@ -317,6 +327,20 @@ export class DebateController {
     config: DebateConfig
   ): Promise<boolean> {
     console.log(`[Debate] executeIteration ${iteration} with ${provider}`);
+
+    // Issue #45: Circuit Breaker 체크
+    const breaker = circuitBreakerManager.getBreaker(provider);
+    if (!breaker.canRequest()) {
+      console.warn(`[Debate] Circuit breaker OPEN for ${provider}, skipping iteration`);
+      this.eventEmitter.emit('debate:circuit-open', {
+        sessionId: this.debateId,
+        iteration,
+        provider,
+        metrics: breaker.getMetrics(),
+      });
+      return false;
+    }
+
     const adapter = this.browserManager.getAdapter(provider);
     console.log(`[Debate] Got adapter for ${provider}`);
 
@@ -366,6 +390,8 @@ export class DebateController {
       // Check for empty response after retry
       if (!response || response.trim().length === 0) {
         console.error(`[Debate] Empty response from ${provider} at iteration ${iteration}`);
+        // Issue #45: 빈 응답도 실패로 기록
+        breaker.recordFailure('Empty response');
         this.eventEmitter.emit('debate:error', {
           sessionId: this.debateId,
           iteration,
@@ -473,9 +499,13 @@ export class DebateController {
         timestamp: new Date().toISOString(),
       });
 
+      // Issue #45: 성공 기록
+      breaker.recordSuccess();
       return true;
     } catch (error) {
       console.error(`[Debate] Error in iteration ${iteration}:`, error);
+      // Issue #45: 에러도 실패로 기록
+      breaker.recordFailure(String(error));
       this.eventEmitter.emit('debate:error', {
         sessionId: this.debateId,
         iteration,
@@ -564,5 +594,25 @@ ${elementList}
   // Issue #44: 파서 실패 로그 조회
   getParseFailureLogs() {
     return responseParser.getFailureLogs();
+  }
+
+  // Issue #45: Circuit Breaker 상태 조회
+  getCircuitBreakerStates() {
+    return circuitBreakerManager.getAllStates();
+  }
+
+  // Issue #45: Circuit Breaker 요약
+  getCircuitBreakerSummary() {
+    return circuitBreakerManager.getSummary();
+  }
+
+  // Issue #45: 특정 Provider Circuit Breaker 리셋
+  resetCircuitBreaker(provider: LLMProvider) {
+    circuitBreakerManager.resetProvider(provider);
+  }
+
+  // Issue #45: 모든 Circuit Breaker 리셋
+  resetAllCircuitBreakers() {
+    circuitBreakerManager.resetAll();
   }
 }
