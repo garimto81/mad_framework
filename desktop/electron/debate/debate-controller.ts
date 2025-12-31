@@ -18,18 +18,14 @@ import type { BrowserViewManager } from '../browser/browser-view-manager';
 import type { CycleDetector } from './cycle-detector';
 import type { ProgressLogger } from './progress-logger';
 import type { SessionRecorder } from '../session/session-recorder';
-import { responseParser, type ParseResult, type ParseMetadata } from './response-parser';
+import { responseParser } from './response-parser';
 import {
   MAX_ITERATIONS,
   MAX_CONSECUTIVE_EMPTY_RESPONSES,
   RETRY_DELAY_MS,
   LONG_RESPONSE_THRESHOLD,
 } from '../constants';
-import {
-  circuitBreakerManager,
-  type CircuitBreaker,
-  type CircuitState,
-} from '../utils/circuit-breaker';
+import { circuitBreakerManager } from '../utils/circuit-breaker';
 
 interface DebateCreateData {
   topic: string;
