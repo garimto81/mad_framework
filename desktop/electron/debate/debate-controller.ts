@@ -18,6 +18,7 @@ import type { BrowserViewManager } from '../browser/browser-view-manager';
 import type { CycleDetector } from './cycle-detector';
 import type { ProgressLogger } from './progress-logger';
 import type { SessionRecorder } from '../session/session-recorder';
+import { responseParser, type ParseResult, type ParseMetadata } from './response-parser';
 import {
   MAX_ITERATIONS,
   MAX_CONSECUTIVE_EMPTY_RESPONSES,
@@ -377,10 +378,21 @@ export class DebateController {
       // Issue #25: assistant 응답 기록
       this.sessionRecorder?.recordMessage(provider, 'assistant', response, iteration);
 
-      // Parse and update element scores
-      const scores = this.parseElementScores(response);
+      // Issue #44: 향상된 응답 파서 사용
+      const parseResult = responseParser.parse(response);
+      const scores = parseResult.elements;
+      const parseMetadata = parseResult.metadata;
 
-      // Issue #33: 파싱 실패해도 응답이 충분히 길면 부분 성공으로 처리
+      // 파싱 메타데이터 로깅
+      console.log(`[Debate] Parse result: stage=${parseMetadata.stage} (${parseMetadata.stageDescription}), ` +
+        `confidence=${parseMetadata.confidence}%, elements=${parseMetadata.elementsFound}, ` +
+        `partial=${parseMetadata.isPartial}, time=${parseMetadata.parseTimeMs}ms`);
+
+      if (parseMetadata.warnings.length > 0) {
+        console.warn(`[Debate] Parse warnings:`, parseMetadata.warnings);
+      }
+
+      // Issue #33 + #44: 파싱 실패해도 응답이 충분히 길면 부분 성공으로 처리
       if (scores.length === 0) {
         console.warn(`[Debate] No scores parsed from response at iteration ${iteration}`);
 
@@ -393,6 +405,7 @@ export class DebateController {
             iteration,
             provider,
             content: response,
+            parseMetadata,
             timestamp: new Date().toISOString(),
           });
           // 긴 응답은 유효한 것으로 간주 (consecutiveEmptyResponses 증가 안 함)
@@ -405,9 +418,15 @@ export class DebateController {
           iteration,
           provider,
           content: response,
+          parseMetadata,
           timestamp: new Date().toISOString(),
         });
         return false;
+      }
+
+      // 부분 파싱 경고
+      if (parseMetadata.isPartial) {
+        console.warn(`[Debate] Partial parse: only ${scores.length} elements extracted with low confidence (${parseMetadata.confidence}%)`);
       }
 
       for (const score of scores) {
@@ -444,12 +463,13 @@ export class DebateController {
         }
       }
 
-      // Emit response event
+      // Emit response event with parse metadata
       this.eventEmitter.emit('debate:response', {
         sessionId: this.debateId,
         iteration,
         provider,
         content: response,
+        parseMetadata,
         timestamp: new Date().toISOString(),
       });
 
@@ -536,122 +556,13 @@ ${elementList}
 \`\`\``;
   }
 
-  // Issue #33: parseElementScores 로버스트화
-  private parseElementScores(
-    response: string
-  ): Array<{ elementName: string; score: number; critique: string }> {
-    try {
-      // 1. ```json 코드 블록 추출
-      let jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-      let jsonStr = jsonMatch ? jsonMatch[1] : null;
-
-      // 2. 일반 ``` 코드 블록 시도
-      if (!jsonStr) {
-        jsonMatch = response.match(/```\s*([\s\S]*?)\s*```/);
-        jsonStr = jsonMatch ? jsonMatch[1] : null;
-      }
-
-      // 3. JSON 객체 직접 추출 시도 ({ ... "elements" ... })
-      if (!jsonStr) {
-        const objectMatch = response.match(/\{[\s\S]*"elements"[\s\S]*\}/);
-        jsonStr = objectMatch ? objectMatch[0] : null;
-      }
-
-      // 4. 배열 직접 추출 시도 ([ ... ] 패턴)
-      if (!jsonStr) {
-        const arrayMatch = response.match(/\[\s*\{[\s\S]*"name"[\s\S]*\}\s*\]/);
-        if (arrayMatch) {
-          try {
-            const parsedArray = JSON.parse(arrayMatch[0]);
-            return this.normalizeElements(parsedArray);
-          } catch {
-            // 배열 파싱 실패, 다음 시도
-          }
-        }
-      }
-
-      // 5. 최후의 수단: 전체 응답을 JSON으로 시도
-      if (!jsonStr) {
-        jsonStr = response.trim();
-      }
-
-      const parsed = JSON.parse(jsonStr);
-
-      // 6. elements 배열 처리
-      if (Array.isArray(parsed.elements)) {
-        return this.normalizeElements(parsed.elements);
-      }
-
-      // 7. 루트가 배열인 경우
-      if (Array.isArray(parsed)) {
-        return this.normalizeElements(parsed);
-      }
-
-      // 8. 단일 객체인 경우
-      if (parsed.name && parsed.score !== undefined) {
-        return this.normalizeElements([parsed]);
-      }
-
-      console.warn('[Debate] Unexpected JSON structure:', Object.keys(parsed));
-      return [];
-    } catch (error) {
-      console.error('[Debate] JSON parse failed:', error);
-      console.error('[Debate] Response preview:', response.substring(0, 200));
-
-      // 9. 정규식 기반 폴백 파싱
-      return this.fallbackParse(response);
-    }
+  // Issue #44: 파서 통계 조회
+  getParseStats() {
+    return responseParser.getStageStats();
   }
 
-  // Issue #33: 요소 정규화 헬퍼
-  private normalizeElements(
-    elements: Array<Record<string, unknown>>
-  ): Array<{ elementName: string; score: number; critique: string }> {
-    return elements
-      .filter(e => e && (e.name || e.elementName))
-      .map((e) => ({
-        elementName: String(e.name || e.elementName || 'unknown'),
-        score: Number(e.score) || 0,
-        critique: String(e.critique || e.feedback || e.comment || ''),
-      }));
-  }
-
-  // Issue #33: 정규식 기반 폴백 파싱
-  private fallbackParse(
-    response: string
-  ): Array<{ elementName: string; score: number; critique: string }> {
-    const results: Array<{ elementName: string; score: number; critique: string }> = [];
-
-    // 패턴: "요소명": 점수, "요소명: 점수", 요소명 - 점수점 등
-    const patterns = [
-      /["']?([가-힣\w]+)["']?\s*[:：]\s*(\d{1,3})(?:점|점수)?/g,
-      /([가-힣\w]+)\s*[-–—]\s*(\d{1,3})(?:점|점수)?/g,
-      /([가-힣]+)\s+(\d{1,3})(?:점|\/100)?/g,
-    ];
-
-    for (const pattern of patterns) {
-      let match;
-      while ((match = pattern.exec(response)) !== null) {
-        const name = match[1];
-        const score = parseInt(match[2], 10);
-
-        if (score >= 0 && score <= 100) {
-          // 중복 체크
-          if (!results.find(r => r.elementName === name)) {
-            results.push({
-              elementName: name,
-              score,
-              critique: '', // 폴백에서는 critique 추출 어려움
-            });
-          }
-        }
-      }
-    }
-
-    if (results.length > 0) {
-      console.log('[Debate] Fallback parse succeeded:', results.length, 'elements');
-    }
-
-    return results;
+  // Issue #44: 파서 실패 로그 조회
+  getParseFailureLogs() {
+    return responseParser.getFailureLogs();
   }
 }
