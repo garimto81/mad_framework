@@ -10,6 +10,7 @@
 import type { LLMProvider, AdapterResult, AdapterErrorCode } from '../../../shared/types';
 import type { WebContents, SelectorSet, ProviderSelectors, AdapterSelectors } from './types';
 import { getBaseUrl, getDefaultSelectors, getSelectorSets } from './selector-config';
+import { selectorMonitor, type ProviderValidationResult } from './selector-monitor';
 import {
   INPUT_READY_TIMEOUT,
   RESPONSE_TIMEOUT,
@@ -63,7 +64,11 @@ export class BaseLLMAdapter {
   }
 
   // Issue #18: Find element with fallback support
-  protected async findElement(selectorSet: SelectorSet): Promise<string | null> {
+  // Issue #43: 셀렉터 모니터링 통합
+  protected async findElement(
+    selectorSet: SelectorSet,
+    selectorType?: keyof ProviderSelectors
+  ): Promise<string | null> {
     const allSelectors = [selectorSet.primary, ...selectorSet.fallbacks];
 
     for (const selector of allSelectors) {
@@ -75,14 +80,37 @@ export class BaseLLMAdapter {
 
         if (exists) {
           console.log(`[${this.provider}] Found element: ${selector}`);
+          // Issue #43: 성공 기록
+          if (selectorType) {
+            selectorMonitor.recordSuccess(this.provider, selectorType, selector);
+          }
           return selector;
+        } else {
+          // Issue #43: 실패 기록
+          if (selectorType) {
+            selectorMonitor.recordFailure(this.provider, selectorType, selector);
+          }
         }
       } catch (error) {
         console.warn(`[${this.provider}] Error checking selector: ${selector}`, error);
+        // Issue #43: 에러도 실패로 기록
+        if (selectorType) {
+          selectorMonitor.recordFailure(this.provider, selectorType, selector, 'script_error');
+        }
       }
     }
 
     console.error(`[${this.provider}] No element found for primary: ${selectorSet.primary}`);
+
+    // Issue #43: 모든 폴백 실패 이벤트 발생
+    if (selectorType) {
+      selectorMonitor.recordAllFallbacksFailed(
+        this.provider,
+        selectorType,
+        selectorSet
+      );
+    }
+
     return null;
   }
 
@@ -126,12 +154,40 @@ export class BaseLLMAdapter {
     }
   }
 
+  // --- Issue #43: 셀렉터 유효성 검증 ---
+
+  /**
+   * Provider의 모든 셀렉터 유효성을 검증합니다.
+   * 앱 시작 시 또는 주기적으로 호출하여 셀렉터 상태를 확인합니다.
+   */
+  async validateSelectors(): Promise<ProviderValidationResult> {
+    return selectorMonitor.validateProvider(
+      this.provider,
+      (script) => this.executeScript(script)
+    );
+  }
+
+  /**
+   * 캐시된 셀렉터 검증 결과를 반환합니다.
+   */
+  getCachedValidation(): ProviderValidationResult | null {
+    return selectorMonitor.getCachedValidation(this.provider);
+  }
+
+  /**
+   * 셀렉터 통계를 반환합니다.
+   */
+  getSelectorStats() {
+    return selectorMonitor.getProviderStats(this.provider);
+  }
+
   // --- AdapterResult-based methods (Issue #17) with fallback (Issue #18) ---
 
   async checkLogin(): Promise<AdapterResult<boolean>> {
     try {
       // Issue #18: Use fallback selectors for login check
-      const selector = await this.findElement(this.selectorSets.loginCheck);
+      // Issue #43: 셀렉터 타입 전달
+      const selector = await this.findElement(this.selectorSets.loginCheck, 'loginCheck');
       return this.success(selector !== null);
     } catch (error) {
       return this.error('NOT_LOGGED_IN', `Login check failed: ${error}`);
@@ -142,7 +198,8 @@ export class BaseLLMAdapter {
     const isReady = await this.waitForCondition(
       async () => {
         // Issue #18: Use fallback selectors for input check
-        const selector = await this.findElement(this.selectorSets.inputTextarea);
+        // Issue #43: 셀렉터 타입 전달
+        const selector = await this.findElement(this.selectorSets.inputTextarea, 'inputTextarea');
         return selector !== null;
       },
       { timeout, interval: CONDITION_CHECK_INTERVAL, description: 'input to be ready' }
@@ -159,7 +216,8 @@ export class BaseLLMAdapter {
 
   async enterPrompt(prompt: string): Promise<AdapterResult> {
     // Issue #18: Find input with fallback
-    const selector = await this.findElement(this.selectorSets.inputTextarea);
+    // Issue #43: 셀렉터 타입 전달
+    const selector = await this.findElement(this.selectorSets.inputTextarea, 'inputTextarea');
     if (!selector) {
       return this.error('SELECTOR_NOT_FOUND', `Failed to input prompt for ${this.provider}: no input found`);
     }
@@ -201,11 +259,12 @@ export class BaseLLMAdapter {
 
   async submitMessage(): Promise<AdapterResult> {
     // Issue #18: Find send button with fallback
-    const selector = await this.findElement(this.selectorSets.sendButton);
+    // Issue #43: 셀렉터 타입 전달
+    const selector = await this.findElement(this.selectorSets.sendButton, 'sendButton');
     if (!selector) {
       console.warn(`[${this.provider}] No send button found, trying Enter key`);
       // Fallback: Try Enter key
-      const inputSelector = await this.findElement(this.selectorSets.inputTextarea);
+      const inputSelector = await this.findElement(this.selectorSets.inputTextarea, 'inputTextarea');
       if (inputSelector) {
         const enterScript = `
           (() => {
@@ -631,7 +690,8 @@ export class BaseLLMAdapter {
 
   async getTokenCount(): Promise<number> {
     // Issue #18: Find response container with fallback
-    const selector = await this.findElement(this.selectorSets.responseContainer);
+    // Issue #43: 셀렉터 타입 전달
+    const selector = await this.findElement(this.selectorSets.responseContainer, 'responseContainer');
     if (!selector) {
       return 0;
     }
@@ -648,7 +708,8 @@ export class BaseLLMAdapter {
 
   async clearInput(): Promise<void> {
     // Issue #18: Find input with fallback
-    const selector = await this.findElement(this.selectorSets.inputTextarea);
+    // Issue #43: 셀렉터 타입 전달
+    const selector = await this.findElement(this.selectorSets.inputTextarea, 'inputTextarea');
     if (!selector) {
       return;
     }
@@ -722,3 +783,12 @@ export class BaseLLMAdapter {
 
 // Re-export types for convenience
 export type { WebContents, SelectorSet, ProviderSelectors, AdapterSelectors } from './types';
+
+// Issue #43: Re-export selector monitor
+export { selectorMonitor } from './selector-monitor';
+export type {
+  SelectorStats,
+  SelectorValidationResult,
+  ProviderValidationResult,
+  SelectorFailureEvent,
+} from './selector-monitor';

@@ -38,13 +38,25 @@ vi.mock('electron', () => ({
   },
 }));
 
+interface MockWebContents {
+  executeJavaScript: ReturnType<typeof vi.fn>;
+  loadURL: ReturnType<typeof vi.fn>;
+  getURL: ReturnType<typeof vi.fn>;
+  on: ReturnType<typeof vi.fn>;
+}
+
+interface MockMainWindow {
+  setBrowserView: ReturnType<typeof vi.fn>;
+  getBounds: ReturnType<typeof vi.fn>;
+}
+
 describe('Claude Message Send and Progress Monitoring', () => {
-  let mockWebContents: any;
+  let mockWebContents: MockWebContents;
   let adapter: ClaudeAdapter;
   let browserManager: BrowserViewManager;
   let statusPoller: StatusPoller;
   let logger: ProgressLogger;
-  let mockMainWindow: any;
+  let mockMainWindow: MockMainWindow;
 
   beforeEach(() => {
     vi.useFakeTimers();

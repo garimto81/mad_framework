@@ -7,10 +7,10 @@
 import type { LLMProvider } from '../../../shared/types';
 
 export interface WebContents {
-  executeJavaScript: (script: string) => Promise<any>;
+  executeJavaScript: <T = unknown>(script: string) => Promise<T>;
   loadURL: (url: string) => void;
   getURL: () => string;
-  on: (event: string, callback: (...args: any[]) => void) => void;
+  on: (event: string, callback: (...args: unknown[]) => void) => void;
 }
 
 // Issue #18: SelectorSet for fallback support

@@ -9,6 +9,7 @@ import * as path from 'path';
 import type {
   DebateConfig,
   LLMProvider,
+  ProgressLog,
 } from '../../shared/types';
 import { BrowserViewManager } from '../browser/browser-view-manager';
 import { DebateController } from '../debate/debate-controller';
@@ -481,7 +482,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow) {
     const type = options?.type;
 
     if (type) {
-      return { logs: progressLogger.getLogsByType(type as any).slice(0, limit) };
+      return { logs: progressLogger.getLogsByType(type as ProgressLog['type']).slice(0, limit) };
     }
     return { logs: progressLogger.getLogs(limit) };
   });

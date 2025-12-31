@@ -2,6 +2,7 @@
   "name": "mad-desktop",
   "version": "0.1.0",
   "description": "MAD Desktop Application - Multi-Agent Debate with Browser Automation",
+  "type": "module",
   "main": "dist/main/electron/main.js",
   "scripts": {
     "dev": "vite",
