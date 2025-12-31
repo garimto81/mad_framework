@@ -20,7 +20,13 @@ import { test, expect, type ElectronApplication, type Page } from '@playwright/t
 import { _electron as electron } from 'playwright';
 import * as path from 'path';
 import * as os from 'os';
-import testPrompts from '../fixtures/test-prompts.json';
+import * as fs from 'fs';
+import * as url from 'url';
+
+const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
+const testPrompts = JSON.parse(
+  fs.readFileSync(new URL('../fixtures/test-prompts.json', import.meta.url), 'utf-8')
+);
 
 // 기존 Electron 세션 경로 (로그인 정보 유지)
 const USER_DATA_DIR = path.join(os.homedir(), 'AppData', 'Roaming', 'mad-desktop');
