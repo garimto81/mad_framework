@@ -11,6 +11,7 @@ import type { LLMProvider, AdapterResult, AdapterErrorCode } from '../../../shar
 import type { WebContents, SelectorSet, ProviderSelectors, AdapterSelectors } from './types';
 import { getBaseUrl, getDefaultSelectors, getSelectorSets } from './selector-config';
 import { selectorMonitor, type ProviderValidationResult } from './selector-monitor';
+import { adaptiveTimeoutManager, type TimeoutPrediction } from '../../utils/adaptive-timeout';
 import {
   INPUT_READY_TIMEOUT,
   RESPONSE_TIMEOUT,
@@ -319,7 +320,14 @@ export class BaseLLMAdapter {
   }
 
   async awaitResponse(timeout: number = RESPONSE_TIMEOUT): Promise<AdapterResult> {
-    console.log(`[${this.provider}] awaitResponse started, timeout: ${timeout}ms`);
+    // Issue #46: 적응형 타임아웃 적용
+    const prediction = this.getAdaptiveTimeout();
+    const effectiveTimeout = timeout > 0 ? Math.min(timeout, prediction.recommendedTimeoutMs) : prediction.recommendedTimeoutMs;
+
+    console.log(`[${this.provider}] awaitResponse started, timeout: ${effectiveTimeout}ms ` +
+      `(adaptive: ${prediction.recommendedTimeoutMs}ms, confidence: ${prediction.confidence})`);
+
+    const startTime = Date.now();
 
     // Step 1: Wait for typing to start
     const typingStarted = await this.waitForCondition(
@@ -338,7 +346,7 @@ export class BaseLLMAdapter {
     }
 
     // Step 2: Wait for typing to finish with reasonable limits
-    const remainingTimeout = Math.max(timeout - TYPING_START_TIMEOUT, TYPING_FINISH_MIN_TIMEOUT);
+    const remainingTimeout = Math.max(effectiveTimeout - TYPING_START_TIMEOUT, TYPING_FINISH_MIN_TIMEOUT);
     const typingFinished = await this.waitForCondition(
       async () => !(await this.isWriting()),
       {
@@ -357,15 +365,50 @@ export class BaseLLMAdapter {
         return this.success();
       }
       return this.error('RESPONSE_TIMEOUT', `Response timeout for ${this.provider}`, {
-        timeout,
+        timeout: effectiveTimeout,
         remainingTimeout,
+        adaptivePrediction: prediction,
       });
     }
 
     // Step 3: DOM stabilization delay
     await this.sleep(DOM_STABILIZATION_DELAY);
-    console.log(`[${this.provider}] Response complete`);
+
+    // Issue #46: 응답 시간 기록 (성공)
+    const elapsedMs = Date.now() - startTime;
+    console.log(`[${this.provider}] Response complete in ${elapsedMs}ms`);
+
     return this.success();
+  }
+
+  // Issue #46: 적응형 타임아웃 예측
+  getAdaptiveTimeout(promptLength?: number): TimeoutPrediction {
+    return adaptiveTimeoutManager.predictTimeout(this.provider, promptLength);
+  }
+
+  // Issue #46: 응답 시간 기록
+  recordResponseTime(
+    responseTimeMs: number,
+    promptLength: number,
+    responseLength: number,
+    success: boolean
+  ): void {
+    adaptiveTimeoutManager.recordResponseTime(
+      this.provider,
+      responseTimeMs,
+      promptLength,
+      responseLength,
+      success
+    );
+  }
+
+  // Issue #46: 예상 완료 시간 조회
+  estimateCompletion(elapsedMs: number, currentResponseLength: number) {
+    return adaptiveTimeoutManager.estimateCompletionTime(
+      this.provider,
+      elapsedMs,
+      currentResponseLength
+    );
   }
 
   // Helper: 유효한 응답이 있는지 확인 (Issue #33 개선)
