@@ -98,3 +98,10 @@ export const BROWSER_VIEW_CREATION_DELAY = 500;
 
 /** Provider 생성 후 대기 시간 (ms) */
 export const PROVIDER_CREATION_DELAY = 1000;
+
+// ============================================================
+// Server Port Constants
+// ============================================================
+
+/** Vite 개발 서버 포트 */
+export const DEV_SERVER_PORT = 7100;

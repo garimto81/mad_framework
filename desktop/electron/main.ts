@@ -8,6 +8,7 @@ import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import { registerIpcHandlers, cleanupIpcHandlers } from './ipc/handlers';
 import { createScopedLogger } from './utils/logger';
+import { DEV_SERVER_PORT } from './constants';
 
 // userData 경로 override (테스트 환경 지원)
 // 환경변수 또는 CLI 인자로 커스텀 경로 설정 가능
@@ -52,7 +53,7 @@ function createWindow() {
 
   // Load the app
   if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.loadURL(`http://localhost:${DEV_SERVER_PORT}`);
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../../renderer/index.html'));
