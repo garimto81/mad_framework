@@ -11,9 +11,13 @@ import log from 'electron-log';
 import path from 'path';
 import { app } from 'electron';
 
-// 로그 파일 경로 설정
+// 로그 파일 경로 설정 (app.getPath는 함수 호출 시점에 실행되어 app ready 이후 호출됨)
+let logPath: string | null = null;
 log.transports.file.resolvePathFn = () => {
-  return path.join(app.getPath('userData'), 'logs', 'mad-desktop.log');
+  if (!logPath) {
+    logPath = path.join(app.getPath('userData'), 'logs', 'mad-desktop.log');
+  }
+  return logPath;
 };
 
 // 로그 회전: 5MB 최대
