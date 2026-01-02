@@ -209,4 +209,85 @@ describe('GeminiAdapter', () => {
       expect(script).toContain('.model-response');
     });
   });
+
+  // Issue #52: submitMessage 특화 구현 테스트
+  describe('submitMessage', () => {
+    it('should try Material Design selectors in order', async () => {
+      mockWebContents.executeJavaScript.mockResolvedValue({
+        success: true,
+        selector: 'button[aria-label="Submit prompt"]',
+        debug: { tried: ['button[aria-label="Submit prompt"]'] },
+      });
+
+      const result = await adapter.submitMessage();
+
+      expect(result.success).toBe(true);
+      const script = mockWebContents.executeJavaScript.mock.calls[0][0];
+      expect(script).toContain('aria-label="Submit prompt"');
+      expect(script).toContain('aria-label="프롬프트 보내기"');
+    });
+
+    it('should use PointerEvent + MouseEvent sequence', async () => {
+      mockWebContents.executeJavaScript.mockResolvedValue({
+        success: true,
+        selector: '.send-button',
+      });
+
+      await adapter.submitMessage();
+
+      const script = mockWebContents.executeJavaScript.mock.calls[0][0];
+      expect(script).toContain('PointerEvent');
+      expect(script).toContain('MouseEvent');
+      expect(script).toContain('pointerdown');
+      expect(script).toContain('mousedown');
+    });
+
+    it('should fallback to Enter key when button click fails', async () => {
+      mockWebContents.executeJavaScript
+        .mockResolvedValueOnce({ success: false, error: 'button not found' })
+        .mockResolvedValueOnce({ success: true, method: 'enter-key' });
+
+      const result = await adapter.submitMessage();
+
+      expect(result.success).toBe(true);
+      expect(mockWebContents.executeJavaScript).toHaveBeenCalledTimes(2);
+    });
+
+    it('should support Korean aria-labels', async () => {
+      mockWebContents.executeJavaScript.mockResolvedValue({
+        success: true,
+        selector: 'button[aria-label="프롬프트 보내기"]',
+      });
+
+      const result = await adapter.submitMessage();
+
+      expect(result.success).toBe(true);
+      const script = mockWebContents.executeJavaScript.mock.calls[0][0];
+      expect(script).toContain('프롬프트 보내기');
+      expect(script).toContain('보내');
+    });
+
+    it('should return error when all methods fail', async () => {
+      mockWebContents.executeJavaScript
+        .mockResolvedValueOnce({ success: false, error: 'button not found' })
+        .mockResolvedValueOnce({ success: false, error: 'editor not found' });
+
+      const result = await adapter.submitMessage();
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe('SEND_FAILED');
+    });
+
+    it('should include Japanese aria-label for internationalization', async () => {
+      mockWebContents.executeJavaScript.mockResolvedValue({
+        success: true,
+        selector: 'button[aria-label="プロンプトを送信"]',
+      });
+
+      await adapter.submitMessage();
+
+      const script = mockWebContents.executeJavaScript.mock.calls[0][0];
+      expect(script).toContain('プロンプトを送信');
+    });
+  });
 });
