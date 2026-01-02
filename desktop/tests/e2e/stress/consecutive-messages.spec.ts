@@ -46,7 +46,7 @@ test.describe('ChatGPT 10회 연속 메시지 테스트', () => {
     // Electron 앱 시작
     electronApp = await electron.launch({
       args: [
-        path.join(__dirname, '../../../dist/main/electron/main.js'),
+        path.join(__dirname, '../../../dist/main/electron/main.cjs'),
         `--user-data-dir=${USER_DATA_DIR}`,
       ],
       env: {

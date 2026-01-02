@@ -15,8 +15,8 @@ import * as os from 'os';
 // 이 경로는 프로덕션 앱과 동일한 userData 경로를 사용하여 세션을 공유함
 export const USER_DATA_DIR = path.join(os.homedir(), 'AppData', 'Roaming', 'mad-desktop');
 
-// 빌드된 main.js 경로
-const MAIN_JS_PATH = path.join(__dirname, '../../../dist/main/electron/main.js');
+// 빌드된 main.cjs 경로 (ESM/CJS 충돌 방지)
+const MAIN_JS_PATH = path.join(__dirname, '../../../dist/main/electron/main.cjs');
 
 /**
  * Electron 테스트용 확장 fixture

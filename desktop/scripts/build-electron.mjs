@@ -19,8 +19,8 @@ const buildOptions = {
   bundle: true,
   platform: 'node',
   target: 'node20',
-  outfile: resolve(rootDir, 'dist/main/electron/main.js'),
-  format: 'cjs', // CommonJS for Electron
+  outfile: resolve(rootDir, 'dist/main/electron/main.cjs'),
+  format: 'cjs', // CommonJS for Electron (.cjs extension to avoid ESM conflict)
   external: [
     'electron',
     'better-sqlite3',

@@ -47,7 +47,7 @@ test.describe('ChatGPT Single Workflow E2E', () => {
     // userData를 공유하여 기존 로그인 세션 유지
     electronApp = await electron.launch({
       args: [
-        path.join(__dirname, '../../../dist/main/electron/main.js'),
+        path.join(__dirname, '../../../dist/main/electron/main.cjs'),
         `--user-data-dir=${USER_DATA_DIR}`,
       ],
       env: {

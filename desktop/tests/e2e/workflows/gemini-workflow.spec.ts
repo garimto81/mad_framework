@@ -40,7 +40,7 @@ test.describe('Gemini Single Workflow E2E', () => {
   test.beforeAll(async () => {
     electronApp = await electron.launch({
       args: [
-        path.join(__dirname, '../../../dist/main/electron/main.js'),
+        path.join(__dirname, '../../../dist/main/electron/main.cjs'),
         `--user-data-dir=${USER_DATA_DIR}`,
       ],
       env: {
